@@ -1,0 +1,48 @@
+version: "3.8"
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  embedding-server:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.0
+    container_name: embedding-server
+    ports:
+      - "8088:80"
+    environment:
+      MODEL_ID: sentence-transformers/all-MiniLM-L6-v2
+      MAX_INPUT_LENGTH: 512
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./docker/entrypoint-ollama.sh:/entrypoint.sh
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  mongo_data:
+  qdrant_storage:
+  ollama_data:

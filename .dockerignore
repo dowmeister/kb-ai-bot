@@ -1,0 +1,33 @@
+# Node modules (reinstall in container)
+node_modules
+
+# Git
+.git
+.gitignore
+
+# Docker files
+Dockerfile
+.dockerignore
+
+# Env files (optional, you may inject them manually)
+.env
+.env.local
+
+# Logs
+*.log
+
+# Build artifacts
+dist
+build
+
+# IDE/editor configs
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.swp
+*.tmp
