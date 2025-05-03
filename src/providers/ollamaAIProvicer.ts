@@ -7,6 +7,7 @@ export default class OllamaAIProvider implements AIProvider {
 
   constructor() {
     // Constructor logic if needed
+    this.baseUrl = process.env.OLLAMA_API_URL || this.baseUrl;
   }
 
   async getEmbedding(text: string): Promise<number[]> {

@@ -12,7 +12,9 @@ let isConnected = false;
 
 export function getMongoClient(): MongoClient {
   if (!client) {
-    throw new Error("MongoDB client is not initialized. Call connectMongo first.");
+    throw new Error(
+      "MongoDB client is not initialized. Call connectMongo first."
+    );
   }
   return client;
 }
@@ -150,7 +152,10 @@ export async function saveMissedAnswer(message: MissedAnswer): Promise<void> {
   await collection.insertOne(message);
 }
 
-export async function updatePageSummary(url:string, summary:string): Promise<void> {
+export async function updatePageSummary(
+  url: string,
+  summary: string
+): Promise<void> {
   const db = await connectMongo();
 
   const collection = db.collection("pages");

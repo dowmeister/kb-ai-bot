@@ -1,3 +1,4 @@
+import "dotenv/config";
 import {
   Client,
   GatewayIntentBits,
@@ -5,6 +6,10 @@ import {
   PermissionsBitField,
   FetchMessagesOptions,
   EmbedBuilder,
+  Collection,
+  REST,
+  Routes,
+  OAuth2Scopes,
 } from "discord.js";
 import { askQuestion } from "./ask";
 import {
@@ -13,12 +18,10 @@ import {
   saveMissedAnswer,
   verifyUserMessage,
 } from "./mongo";
-import { configDotenv } from "dotenv";
-import { logInfo, logError } from "./logger";
-import { isHelpRequestSimple } from "./utils";
+import { logInfo, logError, logSuccess } from "./logger";
+import { buildReply, isHelpRequestSimple } from "./utils";
 import { embeddingService } from "./services/embedding-service";
-
-configDotenv();
+import { knowledgeCommands } from "./commands/knowledge-commands";
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
@@ -30,6 +33,50 @@ const client = new Client({
     GatewayIntentBits.GuildMessageReactions,
   ],
 });
+
+// Commands collection
+const commands = new Collection();
+knowledgeCommands.forEach((command: any) => {
+  commands.set(command.data.name, command);
+});
+
+// Construct and prepare an instance of the REST module
+const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+
+// and deploy your commands!
+(async () => {
+  try {
+    logInfo(`Started refreshing ${commands.size} application (/) commands.`);
+
+    if (process.env.DISCORD_GUILD_ID) {
+      // The put method is used to deploy commands to a specific guild
+      const data: any = await rest.put(
+        Routes.applicationGuildCommands(
+          process.env.DISCORD_CLIENT_ID,
+          process.env.DISCORD_GUILD_ID
+        ),
+        { body: commands.map((m: any) => m.data.toJSON()) }
+      );
+
+      logSuccess(
+        `Successfully reloaded ${data.length} application (/) commands in the guild.`
+      );
+    } else {
+      // The put method is used to fully refresh all commands in the guild with the current set
+      const data: any = await rest.put(
+        Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
+        { body: commands.map((m: any) => m.data.toJSON()) }
+      );
+
+      logSuccess(
+        `Successfully reloaded ${data.length} application (/) commands.`
+      );
+    }
+  } catch (error) {
+    // And of course, make sure you catch and log any errors!
+    console.error(error);
+  }
+})();
 
 function isMemberModerator(member: any): boolean {
   if (!member.permissions) return false;
@@ -45,11 +92,38 @@ function isMemberModerator(member: any): boolean {
 }
 
 client.once(Events.ClientReady, () => {
-  logInfo(`Discord bot logged in as ${client.user?.tag}`);
+  logSuccess(`Discord bot logged in as ${client.user?.tag}`);
   client.user?.setActivity("helping you!");
-  logInfo("Discord bot is ready!");
+  logSuccess("Discord bot is ready!");
 
-  //retrieveAndCacheOldMessages();
+  // Generate the invite link with admin permissions and slash commands
+  const inviteLink = client.generateInvite({
+    scopes: [OAuth2Scopes.Bot, OAuth2Scopes.ApplicationsCommands],
+    permissions: ["Administrator"],
+  });
+
+  logInfo(`Invite me to your server with this link: ${inviteLink}`);
+});
+
+// Command handler
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isCommand()) return;
+
+  const command: DiscordCommand = commands.get(
+    interaction.commandName
+  ) as DiscordCommand;
+
+  if (!command) return;
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    await interaction.reply({
+      content: "There was an error executing this command!",
+      ephemeral: true,
+    });
+  }
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -110,32 +184,21 @@ client.on(Events.MessageCreate, async (message) => {
 
     // New part: if it's a help request, try to answer
     if (isHelpRequestSimple(userMessage)) {
+      // Create a typing indicator
+      await message.channel.sendTyping();
+
       const answer = await askQuestion(userMessage);
 
-      if (answer && answer.answer.length > 0) {
+      if (answer && answer.answer.length > 0 && answer.replied) {
         logInfo(`Answering help request: ${userMessage}`);
 
-        let answerText = answer.answer;
-
-        const singleUrls = [...new Set(answer.urls)];
-
-        if (answer.urls && answer.urls.length > 0) {
-          for (let i = 0; i < singleUrls.length; i++) {
-            const url = singleUrls[i];
-            answerText += ` [[${i + 1}]](${url})`;
-          }
-        }
-
-        const embed = new EmbedBuilder({
-          description: answerText,
-          color: 0x0099ff,
-        });
+        const embed = buildReply(answer);
 
         const sentMessage = await message.reply({ embeds: [embed] });
 
         saveAnswer({
           answer: answer.answer,
-          urls: singleUrls,
+          urls: answer.urls,
           question: userMessage,
           questionMessageId: message.id,
           answerMessageId: sentMessage.id,

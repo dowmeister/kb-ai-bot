@@ -9,12 +9,24 @@ const client = new QdrantClient({
   url: process.env.QDRANT_URI || "http://localhost:6333",
 });
 
-interface AIAnswer {
-  answer: string;
-  urls: string[];
-}
+
 /**
- * Find relevant documents for a question and generate a natural language answer using an LLM.
+ * Asks a question and retrieves an answer using an AI model.
+ * 
+ * This function processes the given question by generating an embedding,
+ * searching for relevant documents, and constructing a context from the
+ * search results. It then uses a language model to generate a natural
+ * language answer based on the context.
+ * 
+ * @param question - The question to be asked as a string.
+ * @returns A promise that resolves to an `AIAnswer` object containing:
+ * - `answer`: The generated answer as a string.
+ * - `urls`: An array of URLs related to the search results.
+ * - `replied` (optional): A boolean indicating if a valid answer was generated.
+ * 
+ * The function handles errors gracefully and logs relevant information
+ * during the process. If no relevant information is found, a default
+ * response is returned.
  */
 export async function askQuestion(question: string): Promise<AIAnswer> {
   logInfo(`Embedding your question: "${question}"`);
@@ -77,13 +89,14 @@ export async function askQuestion(question: string): Promise<AIAnswer> {
       context += `\n\n`;
     }
 
-    context = context.trim(); 
+    context = context.trim();
 
     if (context.length === 0) {
       logWarning("No content found in the search results.");
       return {
         answer: "Sorry, I could not find any relevant information.",
         urls: [],
+        replied: false,
       };
     }
 
@@ -93,11 +106,18 @@ export async function askQuestion(question: string): Promise<AIAnswer> {
     // Generate a natural language answer using the LLM
     const answer = await provider.completePrompt(question, context);
 
+    logInfo(`Answer from LLM: ${answer}`);
+
     return {
       answer,
-      urls: searchResult
-        .map((hit) => (hit.payload as any)?.url)
-        .filter((url: string) => url !== undefined),
+      replied: true,
+      urls: [
+        ...new Set(
+          searchResult
+            .map((hit) => (hit.payload as any)?.url)
+            .filter((url: string) => url !== undefined)
+        ),
+      ],
     };
   } catch (error) {
     logError(

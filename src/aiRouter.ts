@@ -9,13 +9,30 @@ export class AIRouter {
   private providers: Record<string, AIProvider> = {};
 
   constructor() {
-    this.providers["openai"] = new OpenAIProvider();
-    this.providers["cloudflare"] = new CloudflareAIProvider();
-    this.providers["bedrock"] = new AmazonBedrockAIProvider();
+    if (process.env.OPENAI_API_KEY) {
+      this.providers["openai"] = new OpenAIProvider();
+    }
+
+    if (process.env.CLOUDFLARE_API_KEY) {
+      this.providers["cloudflare"] = new CloudflareAIProvider();
+    }
+
+    //this.providers["bedrock"] = new AmazonBedrockAIProvider();
+    if (process.env.llm)
     this.providers["ollama"] = new OllamaAIProvider();
-    this.providers["claude"] = new ClaudeProvider();
+
+    if (process.env.ANTHROPIC_API_KEY) {
+      this.providers["claude"] = new ClaudeProvider();
+    }
   }
 
+  /**
+   * Retrieves an AI provider by its name.
+   *
+   * @param name - The name of the AI provider to retrieve.
+   * @returns The AIProvider instance associated with the given name.
+   * @throws {Error} If no provider is registered with the specified name.
+   */
   getProvider(name: string): AIProvider {
     const provider = this.providers[name];
     if (!provider) {
@@ -24,6 +41,12 @@ export class AIRouter {
     return provider;
   }
 
+  /**
+   * Retrieves the default AI provider based on the environment variable `DEFAULT_AI_PROVIDER`.
+   * If the environment variable is not set, it defaults to using "ollama" as the provider.
+   *
+   * @returns {AIProvider} The default AI provider instance.
+   */
   getDefaultProvider(): AIProvider {
     return this.getProvider(process.env.DEFAULT_AI_PROVIDER || "ollama");
   }

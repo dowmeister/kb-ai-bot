@@ -66,3 +66,26 @@ interface EmbedContent {
   title?: string;
   embedding: number[];
 }
+
+interface DiscordCommand {
+  execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+}
+
+interface AIAnswer {
+  answer: string;
+  urls: string[];
+  replied?: boolean;
+}
+
+type QdrantEmbeddingPayload = Record<string, any> & {
+  url: string;
+  text: string;
+  title?: string;
+  key?: string;
+  source?: QdrantEmbeddingPayloadSource;
+  is_summary?: boolean;
+  chunk_index?: number;
+  guild_id?: string | null;
+};
+
+type QdrantEmbeddingPayloadSource = "discord" | "web-scraper";

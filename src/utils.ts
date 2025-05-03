@@ -1,10 +1,21 @@
+import { Embed, EmbedBuilder } from "discord.js";
 import { encode, decode } from "gpt-tokenizer";
 
+
 /**
- * Split text into chunks without cutting words in the middle
- * @param text The text to split into chunks
- * @param maxTokens Maximum tokens per chunk
- * @returns Array of text chunks
+ * Splits a given text into smaller chunks, ensuring each chunk does not exceed
+ * the specified maximum number of tokens. The function attempts to preserve
+ * word boundaries by avoiding splitting words across chunks.
+ *
+ * @param text - The input text to be split into chunks.
+ * @param maxTokens - The maximum number of tokens allowed per chunk. Defaults to 200.
+ * @returns An array of text chunks, each containing up to `maxTokens` tokens.
+ *
+ * @remarks
+ * - The function uses `encode` to tokenize the input text and `decode` to convert tokens back to text.
+ * - If the input text is shorter than or equal to `maxTokens`, it is returned as a single chunk.
+ * - Word boundaries are respected by adjusting the chunk size to avoid splitting words.
+ * - Empty chunks are not included in the result.
  */
 export function splitTextIntoChunks(
   text: string,
@@ -58,37 +69,45 @@ export function splitTextIntoChunks(
   return chunks;
 }
 
-// Extracts meaningful content from the page
-function extractContent(): string {
-  const mainContentSelectors = [
-    "article",
-    "section",
-    'div[class*="content"]',
-    'div[class*="article"]',
-    'div[class*="kb"]',
-    "main",
-  ];
-
-  let elements: Element[] = [];
-
-  mainContentSelectors.forEach((selector) => {
-    elements.push(...Array.from(document.querySelectorAll(selector)));
-  });
-
-  const contentTexts = elements.flatMap((el) => {
-    return Array.from(el.querySelectorAll("h1, h2, h3, h4, h5, p, li")).map(
-      (child) => child.textContent?.trim() ?? ""
-    );
-  });
-
-  return contentTexts
-    .filter((text) => text.length > 20) // avoid very short texts
-    .join("\n");
-}
-
+/**
+ * Determines if a given text is a simple help request based on its structure.
+ *
+ * This function checks if the input text ends with a question mark (`?`) or 
+ * starts with common question words such as "who", "what", "why", etc.
+ *
+ * @param text - The input string to evaluate.
+ * @returns `true` if the text is identified as a help request; otherwise, `false`.
+ */
 export function isHelpRequestSimple(text: string): boolean {
   const starters =
     /^(who|what|why|where|when|how|which|can|should|would|is|are|do|does)\b/i;
   const textTrimmed = text.trim().toLowerCase();
   return textTrimmed.endsWith("?") || starters.test(textTrimmed);
+}
+
+/**
+ * Constructs an EmbedBuilder instance containing a formatted reply based on the provided AIAnswer.
+ *
+ * @param answer - The AIAnswer object containing the response text and optional URLs.
+ *   - `answer.answer` (string): The main text of the answer.
+ *   - `answer.urls` (string[] | undefined): An optional array of URLs to be appended as references.
+ *
+ * @returns An EmbedBuilder instance with the formatted reply, including the answer text and
+ *          any associated URLs as clickable links.
+ */
+export function buildReply(answer: AIAnswer): EmbedBuilder {
+  let answerText = answer.answer;
+
+  if (answer.urls && answer.urls.length > 0) {
+    answer.urls.forEach((url, index) => {
+      answerText += ` [[${index + 1}]](${url})`;
+    });
+  }
+
+  const embed = new EmbedBuilder({
+    description: answerText,
+    color: 0x0099ff,
+  });
+
+  return embed;
 }

@@ -36,13 +36,18 @@ START_URL=https://truckyapp.com/kb/
 EMBEDDING_SERVER_URL=http://localhost:8088/embed
 OPENAI_API_KEY=sk-xxxxx
 HUGGINGFACE_API_KEY=hf_xxxxx
-DISCORD_TOKEN=
+DISCORD_TOKEN=xxxxxxx
 QUESTION_CLASSIFICATION_MODEL=phi
 REPLY_LLM_MODEL=llama3
+DISCORD_CLIENT_ID= # for registering slash commands
 DISCORD_TESTING_CHANNEL_ID= # the bot will reply in this channel also to moderators
 DISCORD_GUILD_ID= # for old message retrieval
-SCRAPING_IGNORE_LIST=/kb/category/ # comma separated list
+SCRAPING_IGNORE_LIST=/kb/category/,?lang=,?seq= # comma separated list
 DEFAULT_AI_PROVIDER=ollama
+CLOUDFLARE_API_TOKEN=xxxx
+CLOUDFLARE_ACCOUNT_ID=xxxx
+ANTHROPIC_API_KEY=sk-ant-xxxxx
+CLOUDFLARE_MODEL=@cf/meta/llama-4-scout-17b-16e-instruct
 ```
 
 ## Launche the Docker
@@ -82,3 +87,11 @@ Assistant: According to the context, if your server has more than 8 slots and yo
 ```
 npm run discord-bot
 ```
+
+### Available Commands
+
+`/ask` query user
+`/kb-add` title answer
+`/kb-delete` id
+`/kb-list`
+

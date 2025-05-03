@@ -38,6 +38,25 @@ export class SiteScraper {
     return this.ignoreList.some((ignoreUrl) => url.includes(ignoreUrl));
   }
 
+  /**
+   * Extracts the main content and title from a web page.
+   *
+   * This method evaluates the content of the provided Puppeteer `Page` instance
+   * and attempts to extract meaningful text content while removing unnecessary
+   * or irrelevant elements such as scripts, styles, and advertisements.
+   *
+   * The extraction process includes:
+   * - Cleaning up the page by removing unwanted elements (e.g., `<script>`, `<style>`, etc.).
+   * - Identifying the main content container using a prioritized list of selectors.
+   * - Extracting text from relevant elements (e.g., headings, paragraphs, list items).
+   * - Avoiding duplicate or overly short text content.
+   * - Performing final cleanup to ensure the extracted content is readable.
+   *
+   * @param page - The Puppeteer `Page` instance representing the web page to extract content from.
+   * @returns A promise that resolves to an object containing:
+   * - `title`: The title of the page, derived from the `<h1>` element or `<title>` tag.
+   * - `content`: The main textual content of the page, cleaned and formatted.
+   */
   private async extractContent(page: Page): Promise<PageContent> {
     return await page.evaluate(() => {
       // Get the page title (prefer h1, fallback to title)
@@ -222,6 +241,29 @@ export class SiteScraper {
     if (this.browser) await this.browser.close();
   }
 
+  /**
+   * Scrapes web pages starting from the specified `startUrl` and collects their content.
+   * The method navigates through links within the same domain and root path, adhering to
+   * the specified options for delay and maximum pages to scrape.
+   *
+   * The scraping process includes:
+   * - Initializing the browser and page if not already initialized.
+   * - Navigating to each URL in the queue.
+   * - Extracting meaningful content from the page.
+   * - Saving or updating the scraped content in the database.
+   * - Collecting links from the current page and adding unvisited ones to the queue.
+   * - Respecting a delay between requests to avoid overloading the server.
+   *
+   * The method skips URLs that:
+   * - Have already been visited.
+   * - Belong to a different domain or root path.
+   * - Are in the ignore list.
+   *
+   * @returns {Promise<ScrapedPage[]>} A promise that resolves to an array of scraped pages,
+   * each containing the URL, content, title, content length, and an optional summary.
+   *
+   * @throws {Error} Logs errors encountered during navigation or content extraction.
+   */
   async scrape(): Promise<ScrapedPage[]> {
     if (!this.browser || !this.page) {
       await this.initialize();

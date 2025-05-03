@@ -5,6 +5,19 @@ import { QdrantService } from "./services/qdrant-service";
 
 configDotenv();
 
+/**
+ * Refreshes the database by performing the following actions:
+ * - Clears the "pages" collection in MongoDB.
+ * - Attempts to delete the "pages" collection in Qdrant.
+ * - Logs the progress and any warnings or errors encountered during the process.
+ *
+ * This function ensures that the database is reset to a clean state for further operations.
+ * It handles errors gracefully and logs appropriate messages for debugging purposes.
+ *
+ * @async
+ * @function
+ * @throws {Error} Logs and handles any errors that occur during the database refresh process.
+ */
 async function refreshDatabase() {
   logInfo("Starting database refresh...");
 

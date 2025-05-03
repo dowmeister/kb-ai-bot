@@ -1,9 +1,8 @@
+import 'dotenv/config';
+
 import readline from "readline";
 import { askQuestion } from "./ask";
 import { logInfo, logError } from "./logger";
-import { configDotenv } from "dotenv";
-
-configDotenv();
 
 /**
  * Initialize the command-line interface for interactive Q&A

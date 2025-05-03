@@ -35,7 +35,7 @@ export default class CloudflareAIProvider implements AIProvider {
         { role: "user", content: question },
       ],
       temperature: 0.2,
-      model: "@cf/meta/llama-3.2-1b-instruct",
+      model: process.env.CLOUDFLARE_MODEL || "@hf/meta-llama/meta-llama-3-8b-instruct",
     });
 
     return result.choices[0].message.content || "";
