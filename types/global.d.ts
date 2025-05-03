@@ -43,6 +43,7 @@ interface ScrapedPage {
   summary?: string;
   update_at?: Date;
   content_length?: number;
+  siteType?: string;
 }
 
 interface PageContent {
@@ -89,3 +90,24 @@ type QdrantEmbeddingPayload = Record<string, any> & {
 };
 
 type QdrantEmbeddingPayloadSource = "discord" | "web-scraper";
+
+/**
+ * Interface for content extractors
+ */
+interface ContentExtractor {
+  name: SiteType;
+  detect(page: Page): Promise<boolean>;
+  extract(page: Page): Promise<PageContent>;
+}
+
+/**
+ * Interface for site scraper options
+ */
+interface SiteScraperOptions {
+  maxPages?: number;
+  delay?: number;
+  ignoreList?: string;
+  maxRetries?: number;
+  timeout?: number;
+  userAgent?: string;
+}

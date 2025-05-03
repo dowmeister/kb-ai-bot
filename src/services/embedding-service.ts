@@ -15,7 +15,7 @@ export class TextEmbeddingsInferenceService {
   constructor() {
     this.apiUrl = process.env.EMBEDDING_SERVER_URL || "http://localhost:8088";
   }
-  
+
   /**
    * Generates an embedding for the given text using an external embedding service.
    *
@@ -36,7 +36,6 @@ export class TextEmbeddingsInferenceService {
     }
   }
 
-  
   /**
    * Generates embeddings for an array of input texts by sending a request to the embedding service.
    *
@@ -102,14 +101,14 @@ export class TextEmbeddingsInferenceService {
 
   /**
    * Generates embeddings from an array of scraped pages and stores them in the Qdrant vector database.
-   * 
-   * This method processes each page by embedding its content and optionally its summary. 
+   *
+   * This method processes each page by embedding its content and optionally its summary.
    * The embeddings are then upserted into the Qdrant database with associated metadata.
-   * 
+   *
    * @param pages - An array of `ScrapedPage` objects containing the content and metadata of the pages to process.
-   * 
+   *
    * @throws Will log an error if processing a page fails.
-   * 
+   *
    * The method performs the following steps:
    * - Deletes existing vectors in Qdrant associated with the "web-scraper" source.
    * - Iterates through the provided pages:
@@ -122,11 +121,10 @@ export class TextEmbeddingsInferenceService {
     let embeddingsCount = 0;
     let chunksCount = 0;
 
-    await qdrantService.deleteVectorsBySource("web-scraper");
-
     for (const page of pages) {
-
       try {
+        await qdrantService.deleteVectorsByUrl(page.url);
+
         /*
         if (!page.summary || page.summary.length === 0) {
           logWarning(`No summary found for ${page.url}. Skipping...`);

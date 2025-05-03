@@ -1,31 +1,109 @@
 import { Browser, BrowserContext, Page, chromium } from "playwright";
-import { saveOrUpdatePage, updatePageSummary } from "../mongo";
-import { logInfo, logSuccess, logWarning, logError } from "../logger";
-import { summarize } from "../summarize";
-import { log } from "@tensorflow/tfjs-node";
+import { logError, logInfo, logSuccess, logWarning } from "../logger";
+import { MediaWikiContentExtractor } from "../contentProviders/mediawiki-content-extractor";
+import { WordPressContentExtractor } from "../contentProviders/wordpress-content-extractor";
+import { StandardContentExtractor } from "../contentProviders/standard-content-extractor";
+import { saveOrUpdatePage } from "../mongo";
+import { EchoKnowledgeBaseExtractor } from "../contentProviders/echo-kb-content-extractor";
 
-export class SiteScraper {
+/**
+ * A pluggable site scraper that can scrape web pages, extract content, and follow links
+ * within the same domain and root path. It supports multiple content extractors and
+ * allows for customization through options.
+ *
+ * The scraper uses Playwright to navigate web pages and extract content. It can scrape
+ * multiple pages starting from a given URL or scrape a single URL without following links.
+ *
+ * @class PluggableSiteScraper
+ * @example
+ * ```typescript
+ * const scraper = new PluggableSiteScraper("https://example.com", {
+ *   maxPages: 50,
+ *   delay: 2000,
+ *   userAgent: "CustomUserAgent/1.0",
+ * });
+ * await scraper.scrape();
+ * ```
+ *
+ * @remarks
+ * - The scraper supports registering custom content extractors.
+ * - It respects an ignore list to skip specific URLs.
+ * - It ensures that only pages within the same domain and root path are scraped.
+ *
+ * @param startUrl - The starting URL for the scraper.
+ * @param options - Configuration options for the scraper.
+ *
+ * @property visited - A set of visited URLs to prevent duplicate scraping.
+ * @property browser - The Playwright browser instance.
+ * @property context - The Playwright browser context.
+ * @property page - The Playwright page instance.
+ * @property results - The list of scraped pages.
+ * @property ignoreList - A list of URL patterns to ignore during scraping.
+ * @property extractors - A list of registered content extractors.
+ *
+ * @method registerExtractor - Registers a new content extractor.
+ * @method initialize - Initializes the browser and page.
+ * @method close - Closes the browser and releases resources.
+ * @method scrape - Scrapes multiple pages starting from the `startUrl`.
+ * @method scrapeSingleUrl - Scrapes a single URL without following links.
+ */
+export class PluggableSiteScraper {
   private visited = new Set<string>();
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private page: Page | null = null;
   private results: ScrapedPage[] = [];
   private ignoreList: string[] = [];
+  private extractors: ContentExtractor[] = [];
 
   constructor(
     private startUrl: string,
-    private options: {
-      maxPages?: number;
-      delay?: number;
-      ignoreList?: string;
-    } = {}
+    private options: SiteScraperOptions = {}
   ) {
     this.ignoreList =
       options.ignoreList?.split(",") ||
       process.env.SCRAPING_IGNORE_LIST?.split(",") ||
       [];
+
+    // Register default extractors
+    this.registerExtractor(new MediaWikiContentExtractor());
+    this.registerExtractor(new EchoKnowledgeBaseExtractor());
+    this.registerExtractor(new WordPressContentExtractor());
+    this.registerExtractor(new StandardContentExtractor());
+
+    logInfo(`Initialized PluggableSiteScraper for ${startUrl}`);
   }
 
+  /**
+   * Register a content extractor
+   */
+  public registerExtractor(extractor: ContentExtractor): void {
+    this.extractors.push(extractor);
+    logInfo(`Registered ${extractor.name} content extractor`);
+  }
+
+  /**
+   * Initialize the browser and page
+   */
+  async initialize(): Promise<void> {
+    this.browser = await chromium.launch();
+    this.context = await this.browser.newContext({
+      userAgent: this.options.userAgent || "Mozilla/5.0 SiteScraperBot/1.0",
+    });
+    this.page = await this.context.newPage();
+  }
+
+  /**
+   * Close browser and resources
+   */
+  async close(): Promise<void> {
+    if (this.context) await this.context.close();
+    if (this.browser) await this.browser.close();
+  }
+
+  /**
+   * Check if URL should be ignored
+   */
   private isSameDomain(url: URL, domain: string): boolean {
     return url.hostname === domain;
   }
@@ -39,232 +117,73 @@ export class SiteScraper {
   }
 
   /**
-   * Extracts the main content and title from a web page.
-   *
-   * This method evaluates the content of the provided Puppeteer `Page` instance
-   * and attempts to extract meaningful text content while removing unnecessary
-   * or irrelevant elements such as scripts, styles, and advertisements.
-   *
-   * The extraction process includes:
-   * - Cleaning up the page by removing unwanted elements (e.g., `<script>`, `<style>`, etc.).
-   * - Identifying the main content container using a prioritized list of selectors.
-   * - Extracting text from relevant elements (e.g., headings, paragraphs, list items).
-   * - Avoiding duplicate or overly short text content.
-   * - Performing final cleanup to ensure the extracted content is readable.
+   * Extracts content from a given web page using a specific extractor based on the site type.
+   * If no matching extractor is found for the provided site type, it falls back to the "standard" extractor.
+   * Logs relevant information or warnings during the extraction process.
    *
    * @param page - The Puppeteer `Page` instance representing the web page to extract content from.
-   * @returns A promise that resolves to an object containing:
-   * - `title`: The title of the page, derived from the `<h1>` element or `<title>` tag.
-   * - `content`: The main textual content of the page, cleaned and formatted.
+   * @param siteType - A string representing the type of site to determine the appropriate extractor.
+   * @returns A promise that resolves to the extracted `PageContent` or `null` if no suitable extractor is found
+   *          or an error occurs during extraction.
    */
-  private async extractContent(page: Page): Promise<PageContent> {
-    return await page.evaluate(() => {
-      // Get the page title (prefer h1, fallback to title)
-      const h1Element = document.querySelector("h1");
-      const pageTitle =
-        h1Element?.textContent?.trim() || document.title.trim() || "No Title";
+  private async extractContent(
+    page: Page,
+    siteType: string
+  ): Promise<PageContent | null> {
+    let extractor = this.extractors.find((e) => e.name === siteType);
 
-      // First, clean up the page by removing unwanted elements
-      const elementsToRemove = [
-        "script",
-        "style",
-        "noscript",
-        "svg",
-        "img",
-        "video",
-        "audio",
-        "iframe",
-        "nav",
-        "footer",
-        "header",
-        "aside",
-        "form",
-        ".navigation",
-        ".sidebar",
-        ".menu",
-        ".ads",
-        ".comments",
-        "button",
-        "input",
-        "select",
-        "textarea",
-      ];
+    if (!extractor) {
+      // Fallback to the first registered extractor if no specific one is found
+      extractor = this.extractors.find((e) => e.name === "standard");
+    }
 
-      elementsToRemove.forEach((selector) => {
-        document.querySelectorAll(selector).forEach((el) => el.remove());
-      });
-
-      // Define content selectors in priority order
-      const mainContentSelectors = [
-        "article",
-        "main",
-        "section",
-        'div[class*="content"]',
-        'div[class*="article"]',
-        'div[class*="post"]',
-        'div[class*="kb"]',
-        ".page-content",
-        "#main-content",
-      ];
-
-      // Try to find the main content container
-      let mainContentElement: Element | null = null;
-
-      for (const selector of mainContentSelectors) {
-        const elements = document.querySelectorAll(selector);
-        if (elements.length > 0) {
-          // Find the element with the most content
-          mainContentElement = Array.from(elements).reduce((best, current) => {
-            const bestLength = best.textContent
-              ? best.textContent.trim().length
-              : 0;
-            const currentLength = current.textContent
-              ? current.textContent.trim().length
-              : 0;
-            return currentLength > bestLength ? current : best;
-          });
-
-          // Check if we found a good content container (with proper TypeScript null checking)
-          const contentLength = mainContentElement.textContent
-            ? mainContentElement.textContent.trim().length
-            : 0;
-          if (contentLength > 20) {
-            break; // Found a good content container
-          }
+    if (extractor) {
+      try {
+        const isMatch = await extractor.detect(page);
+        if (isMatch) {
+          logInfo(`Using ${extractor.name} extractor for content extraction`);
+          return await extractor.extract(page);
         }
-      }
-
-      // If no main container found, use body as fallback
-      if (
-        !mainContentElement ||
-        !mainContentElement.textContent ||
-        mainContentElement.textContent.trim().length <= 20
-      ) {
-        mainContentElement = document.body;
-      }
-
-      // Specifically target text-containing elements, avoiding hidden elements
-      const contentElements = Array.from(
-        mainContentElement.querySelectorAll(
-          "h1, h2, h3, h4, h5, h6, p, li, td, th, div, span"
-        )
-      ).filter((el) => {
-        const style = window.getComputedStyle(el);
-        const textLength = el.textContent ? el.textContent.trim().length : 0;
-        return (
-          style.display !== "none" &&
-          style.visibility !== "hidden" &&
-          textLength > 0
+      } catch (error) {
+        logWarning(
+          `Error with ${extractor.name} extractor: ${(error as Error).message}`
         );
-      });
+      }
+    } else {
+      logWarning(`No suitable extractor found for ${siteType}`);
+    }
 
-      // Use a Set to track processed text to avoid duplication
-      const processedTexts = new Set<string>();
-      const contentParts: string[] = [];
-
-      // Process each content element
-      contentElements.forEach((element) => {
-        // Get the direct text of this element (excluding child elements)
-        let textContent = "";
-
-        // Iterate through child nodes to get only text nodes
-        for (let i = 0; i < element.childNodes.length; i++) {
-          const node = element.childNodes[i];
-          if (node.nodeType === Node.TEXT_NODE) {
-            textContent += node.textContent || "";
-          }
-        }
-
-        // Also get the full text (including child elements)
-        const fullText = element.textContent ? element.textContent.trim() : "";
-
-        // If this element only contains other elements (no direct text)
-        // and it's not a heading or paragraph element, skip it to avoid duplication
-        const isHeaderOrParagraph = /^(h[1-6]|p)$/i.test(element.tagName);
-        if (textContent.trim().length === 0 && !isHeaderOrParagraph) {
-          return;
-        }
-
-        // For headings and paragraphs, prefer the full text
-        const textToUse = isHeaderOrParagraph ? fullText : textContent.trim();
-
-        // Skip very short text or already processed text - lowered threshold to 20
-        if (textToUse.length < 20 || processedTexts.has(textToUse)) {
-          return;
-        }
-
-        // Check if this is a subset of any existing text (likely a duplicate)
-        let isSubset = false;
-        processedTexts.forEach((existingText) => {
-          if (existingText.includes(textToUse) && existingText !== textToUse) {
-            isSubset = true;
-          }
-        });
-
-        if (!isSubset) {
-          processedTexts.add(textToUse);
-          contentParts.push(textToUse);
-        }
-      });
-
-      // Join with newlines and clean up
-      let finalContent = contentParts.join("\n\n");
-
-      // Final cleanup
-      finalContent = finalContent
-        .replace(/<[^>]*>/g, "") // Remove any remaining HTML tags
-        .replace(/&nbsp;/g, " ") // Replace &nbsp; with spaces
-        .replace(/&amp;/g, "&") // Replace &amp; with &
-        .replace(/&lt;/g, "<") // Replace &lt; with
-        .replace(/&gt;/g, ">") // Replace &gt; with >
-        .replace(/&quot;/g, '"') // Replace &quot; with "
-        .replace(/\s{3,}/g, "\n\n") // Replace multiple spaces with newlines
-        .trim();
-
-      return {
-        title: pageTitle,
-        content: finalContent,
-      };
-    });
-  }
-
-  async initialize(): Promise<void> {
-    this.browser = await chromium.launch();
-    this.context = await this.browser.newContext({
-      userAgent: "Mozilla/5.0 SiteScraperBot/1.0",
-    });
-    this.page = await this.context.newPage();
-  }
-
-  async close(): Promise<void> {
-    if (this.context) await this.context.close();
-    if (this.browser) await this.browser.close();
+    return null;
   }
 
   /**
-   * Scrapes web pages starting from the specified `startUrl` and collects their content.
-   * The method navigates through links within the same domain and root path, adhering to
-   * the specified options for delay and maximum pages to scrape.
+   * Scrapes web pages starting from the specified `startUrl` and collects content
+   * and links within the same domain and root path. The method respects the
+   * configured delay, maximum pages, and timeout options.
    *
-   * The scraping process includes:
-   * - Initializing the browser and page if not already initialized.
-   * - Navigating to each URL in the queue.
-   * - Extracting meaningful content from the page.
-   * - Saving or updating the scraped content in the database.
-   * - Collecting links from the current page and adding unvisited ones to the queue.
-   * - Respecting a delay between requests to avoid overloading the server.
+   * @returns {Promise<ScrapedPage[]>} A promise that resolves to an array of scraped pages.
    *
-   * The method skips URLs that:
-   * - Have already been visited.
-   * - Belong to a different domain or root path.
-   * - Are in the ignore list.
+   * @remarks
+   * - The method initializes the browser and page if they are not already initialized.
+   * - It ensures that only pages within the same domain and root path are scraped.
+   * - URLs in the ignore list are skipped.
+   * - Extracted content is saved or updated using the `saveOrUpdatePage` function.
+   * - Links from the current page are collected and added to the queue if they meet the criteria.
+   * - A delay is respected between requests to avoid overloading the server.
    *
-   * @returns {Promise<ScrapedPage[]>} A promise that resolves to an array of scraped pages,
-   * each containing the URL, content, title, content length, and an optional summary.
+   * @throws {Error} If navigation or content extraction fails for a specific URL.
    *
-   * @throws {Error} Logs errors encountered during navigation or content extraction.
+   * @example
+   * ```typescript
+   * const scraperService = new ScraperService({
+   *   startUrl: "https://example.com",
+   *   options: { delay: 2000, maxPages: 50, timeout: 30000 },
+   * });
+   * const results = await scraperService.scrape();
+   * console.log(results);
+   * ```
    */
-  async scrape(): Promise<ScrapedPage[]> {
+  public async scrape(): Promise<ScrapedPage[]> {
     if (!this.browser || !this.page) {
       await this.initialize();
     }
@@ -277,6 +196,7 @@ export class SiteScraper {
 
     const delay = this.options.delay || 1000;
     const maxPages = this.options.maxPages || 100;
+    const timeout = this.options.timeout || 30000;
 
     const pendingUrls: string[] = [this.startUrl];
 
@@ -286,7 +206,7 @@ export class SiteScraper {
       const currentUrl = pendingUrls.shift()!;
       const parsedUrl = new URL(currentUrl);
 
-      // Remove any fragment (#...)
+      // Remove any fragment
       parsedUrl.hash = "";
       const cleanUrlString = parsedUrl.toString();
 
@@ -315,48 +235,45 @@ export class SiteScraper {
         logInfo(`Navigating to: ${cleanUrlString}`);
         await this.page!.goto(cleanUrlString, {
           waitUntil: "domcontentloaded",
+          timeout: timeout,
         });
 
-        // Wait a moment for any dynamic content
+        // Wait for content to stabilize
         await this.page!.waitForTimeout(500);
 
-        const content = await this.extractContent(this.page!);
+        let siteType = "unknown";
+
+        for (const extractor of this.extractors) {
+          if (await extractor.detect(this.page!)) {
+            siteType = extractor.name;
+            break;
+          }
+        }
+
+        // Extract content using the appropriate extractor
+        const content = await this.extractContent(this.page!, siteType);
+
+        if (!content) {
+          logWarning(`No content extracted from: ${cleanUrlString}`);
+          continue;
+        }
 
         logInfo(
-          `Extracted content from: ${cleanUrlString}: ${content.content.length} characters`
+          `Extracted content from: ${cleanUrlString} (${siteType}): ${content.content.length} characters`
         );
 
         if (content.content.length > 20) {
-          // Only store pages with meaningful content
           const scrapedPage: ScrapedPage = {
             url: cleanUrlString,
             content: content.content,
             title: content.title,
-            content_length: content.content.length,
+            siteType,
           };
 
           const shouldUpdate = await saveOrUpdatePage(scrapedPage);
           scrapedPage.shouldUpdate = shouldUpdate;
 
-          if (shouldUpdate) {
-            logInfo(`Page ${cleanUrlString} contet has changed`);
-            // You can uncomment this if you want to generate summaries
-
-            /*
-            const summary = await summarize(scrapedPage.content);
-
-            if (summary && summary.length > 0) {
-              await updatePageSummary(cleanUrlString, summary);
-              scrapedPage.summary = summary;
-              logInfo(
-                `Updated summary for: ${cleanUrlString}: ${summary.length} characters`
-              );
-            }
-              */
-          }
-
           this.results.push(scrapedPage);
-
           logSuccess(`Saved/Updated content for: ${cleanUrlString}`);
         } else {
           logWarning(`No meaningful content found at: ${cleanUrlString}`);
@@ -399,11 +316,80 @@ export class SiteScraper {
     logSuccess("Scraping completed.");
     return this.results;
   }
+
+  /**
+   * Scrapes a single URL and extracts content using the appropriate extractor.
+   *
+   * This method navigates to the specified URL, waits for the page to stabilize,
+   * and uses a set of extractors to identify the site type and extract relevant content.
+   * If the extracted content is meaningful (length > 20 characters), it returns a `ScrapedPage` object.
+   * Otherwise, it logs a warning and returns `null`.
+   *
+   * @param url - The URL to scrape.
+   * @returns A promise that resolves to a `ScrapedPage` object containing the URL, content, title, and site type,
+   *          or `null` if no meaningful content is found or an error occurs.
+   *
+   * @throws Will log an error message if the scraping process fails.
+   */
+  public async scrapeSingleUrl(url: string): Promise<ScrapedPage | null> {
+    if (!this.browser || !this.page) {
+      await this.initialize();
+    }
+
+    try {
+      logInfo(`Navigating to single URL: ${url}`);
+      await this.page!.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: this.options.timeout || 30000,
+      });
+
+      // Wait for content to stabilize
+      await this.page!.waitForTimeout(500);
+
+      const siteType =
+        this.extractors.find((e) => e.detect(this.page!))?.name || "unknown";
+      // Extract content using the appropriate extractor
+      const content = await this.extractContent(this.page!, siteType);
+
+      if (!content) {
+        logWarning(`No content extracted from: ${url}`);
+        return null;
+      }
+
+      if (content.content.length > 20) {
+        const scrapedPage: ScrapedPage = {
+          url: url,
+          content: content.content,
+          title: content.title,
+          siteType,
+        };
+
+        logSuccess(
+          `Extracted content from single URL: ${url} (${siteType}): ${content.content.length} characters`
+        );
+        return scrapedPage;
+      } else {
+        logWarning(`No meaningful content found at: ${url}`);
+        return null;
+      }
+    } catch (error) {
+      logError(
+        `Failed to scrape single URL ${url}: ${(error as Error).message}`
+      );
+      return null;
+    }
+  }
 }
 
-// Function-based approach for backward compatibility
+/**
+ * Scrapes a website starting from the given URL and returns an array of scraped pages.
+ *
+ * @param startUrl - The URL of the website to start scraping from.
+ * @returns A promise that resolves to an array of `ScrapedPage` objects containing the scraped data.
+ * @throws Any errors encountered during the scraping process.
+ */
 export async function scrapeSite(startUrl: string): Promise<ScrapedPage[]> {
-  const scraper = new SiteScraper(startUrl);
+  const scraper = new PluggableSiteScraper(startUrl);
   try {
     return await scraper.scrape();
   } finally {

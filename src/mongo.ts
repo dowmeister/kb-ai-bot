@@ -77,6 +77,7 @@ export async function saveOrUpdatePage(page: ScrapedPage): Promise<boolean> {
           summary: page.summary,
           updatedAt: new Date(),
           content_length: page.content.length,
+          siteType: page.siteType,
         },
       }
     );

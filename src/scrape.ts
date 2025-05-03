@@ -49,7 +49,7 @@ async function main() {
     return;
   }
 
-  embeddingService.generateEmbeddingsFromPages(
+  await embeddingService.generateEmbeddingsFromPages(
     pages.filter((page) => page.shouldUpdate)
   );
 
