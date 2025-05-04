@@ -1,4 +1,24 @@
-# Knowledge Base Scraper, Vector Storage, and LLM Answering System
+<div align="center">
+  <img src="assets/logo.svg" alt="Project Logo" width="200" height="auto">
+  <h1>KnowledgeFox</h1>
+  <p><em>Knowledge Base Scraper, Vector Storage, and LLM Answering System</em></p>
+  <hr>
+  <div>
+    <a href="https://github.com/dowmeister/kb-ai-bot/stargazers">
+      <img src="https://img.shields.io/github/stars/dowmeister/kb-ai-bot.svg?style=flat-square" alt="Stars">
+    </a>
+    <a href="https://github.com/dowmeister/kb-ai-bot/network/members">
+      <img src="https://img.shields.io/github/forks/dowmeister/kb-ai-bot.svg?style=flat-square" alt="Forks">
+    </a>
+    <a href="https://github.com/dowmeister/kb-ai-bot/issues">
+      <img src="https://img.shields.io/github/issues/dowmeister/kb-ai-bot.svg?style=flat-square" alt="Issues">
+    </a>
+    <a href="https://github.com/dowmeister/kb-ai-bot/blob/master/LICENSE">
+      <img src="https://img.shields.io/github/license/dowmeister/kb-ai-bot.svg?style=flat-square" alt="License">
+    </a>
+  </div>
+  <br>
+</div>
 
 This project provides a fully local pipeline to scrape a website, clean and process the content, generate vector embeddings, store them in a vector database (Qdrant), and answer user questions in natural language using a local Large Language Model (LLM) via [Ollama](https://ollama.com/) but also other providers are available.
 
@@ -49,7 +69,6 @@ Cloudflare with confgiurable model
 Gemini
 
 Amazon Bedrock (not implemented yet)
-
 
 ## Available Scrapers
 
@@ -115,6 +134,7 @@ npm run generate-embeddings
 ### Refresh database and scrape
 
 Clean MongoDB and QDrant Collections, scrape the whole site from the START_URL and generate Vector Embeddings
+
 ```
 npm run refresh-scrape
 ```
@@ -152,4 +172,3 @@ npm run discord-bot
 `/kb-delete [id]`: Delete the given answer from QDrant
 
 `/kb-list`: Lists all answers created via Discord for the current Guild
-

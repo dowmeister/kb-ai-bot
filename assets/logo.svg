@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <!-- Definitions -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#232526" />
+      <stop offset="100%" stop-color="#414345" />
+    </linearGradient>
+    
+    <linearGradient id="fox-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF7E5F" />
+      <stop offset="100%" stop-color="#FEB47B" />
+    </linearGradient>
+    
+    <linearGradient id="brain-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00C9FF" />
+      <stop offset="100%" stop-color="#92FE9D" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect x="0" y="0" width="500" height="500" fill="url(#bg-gradient)" />
+  
+  <!-- Main Logo Group -->
+  <g transform="translate(250, 215)">
+    <!-- Abstract Fox Shape -->
+    <path d="M-90,-20 L0,-110 L90,-20 L60,90 L-60,90 Z" fill="none" stroke="url(#fox-gradient)" stroke-width="6" stroke-linejoin="round" />
+    
+    <!-- Fox Ears -->
+    <path d="M-90,-20 L-60,-90 L-30,-40 Z" fill="none" stroke="url(#fox-gradient)" stroke-width="6" stroke-linejoin="round" />
+    <path d="M90,-20 L60,-90 L30,-40 Z" fill="none" stroke="url(#fox-gradient)" stroke-width="6" stroke-linejoin="round" />
+    
+    <!-- Fox Eyes -->
+    <circle cx="-30" cy="10" r="8" fill="#FEB47B" />
+    <circle cx="30" cy="10" r="8" fill="#FEB47B" />
+    
+    <!-- Knowledge Symbol - Brain Circuit -->
+    <g transform="translate(0, -30)">
+      <path d="M-25,0 C-25,-15 -15,-25 0,-25 C15,-25 25,-15 25,0 C25,15 15,25 0,25 C-15,25 -25,15 -25,0 Z" fill="none" stroke="url(#brain-gradient)" stroke-width="4" stroke-linejoin="round" />
+      
+      <!-- Brain Connections -->
+      <path d="M0,-25 L0,-15 M-25,0 L-15,0 M0,25 L0,15 M25,0 L15,0" stroke="url(#brain-gradient)" stroke-width="4" stroke-linecap="round" />
+      <path d="M-15,-15 L-10,-10 M-15,15 L-10,10 M15,15 L10,10 M15,-15 L10,-10" stroke="url(#brain-gradient)" stroke-width="4" stroke-linecap="round" />
+      
+      <!-- Inner Circuit -->
+      <path d="M-10,-5 L10,-5 L10,5 L-10,5 Z" fill="none" stroke="url(#brain-gradient)" stroke-width="2" />
+      <circle cx="0" cy="0" r="3" fill="#00C9FF" />
+    </g>
+  </g>
+  
+  <!-- Text Elements -->
+  <g transform="translate(250, 370)">
+    <!-- Main Title with Split Styling -->
+    <text x="0" y="0" font-family="'Source Code Pro', monospace" font-size="36" font-weight="700" text-anchor="middle">
+      <tspan fill="#FFFFFF">KNOWLEDGE</tspan><tspan fill="#FEB47B">FOX</tspan>
+    </text>
+    
+    <!-- Subtitle -->
+    <text x="0" y="30" font-family="'Source Code Pro', monospace" font-size="14" font-weight="300" letter-spacing="6" text-anchor="middle" fill="#92FE9D">AI ASSISTANT</text>
+  </g>
+  
+  <!-- Discord Reference -->
+  <g transform="translate(250, 420)">
+    <!-- Message Box Shape -->
+    <rect x="-70" y="-10" width="140" height="30" rx="5" ry="5" fill="#00C9FF" opacity="0.1" />
+    
+    <!-- Input Interface Elements -->
+    <circle cx="-50" cy="5" r="5" fill="#00C9FF" opacity="0.3" />
+    <circle cx="50" cy="5" r="5" fill="#00C9FF" opacity="0.3" />
+    <line x1="-40" y1="5" x2="40" y2="5" stroke="#00C9FF" stroke-width="2" opacity="0.3" stroke-linecap="round" />
+  </g>
+</svg>
