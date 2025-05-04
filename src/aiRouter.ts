@@ -2,6 +2,7 @@ import { AmazonBedrockAIProvider } from "./providers/amazonBedrockAIProvider";
 import { ClaudeProvider } from "./providers/anthropicAIProvider";
 import { AIProvider } from "./providers/baseAIProvider";
 import CloudflareAIProvider from "./providers/cloudflareAIProvider";
+import GeminiAIProvider from "./providers/geminiAIProvider";
 import OllamaAIProvider from "./providers/ollamaAIProvicer";
 import { OpenAIProvider } from "./providers/openAIProvider";
 
@@ -17,12 +18,16 @@ export class AIRouter {
       this.providers["cloudflare"] = new CloudflareAIProvider();
     }
 
-    //this.providers["bedrock"] = new AmazonBedrockAIProvider();
-    if (process.env.llm)
-    this.providers["ollama"] = new OllamaAIProvider();
+    if (process.env.OLLAMA_API_URL) {
+      this.providers["ollama"] = new OllamaAIProvider();
+    }
 
     if (process.env.ANTHROPIC_API_KEY) {
       this.providers["claude"] = new ClaudeProvider();
+    }
+
+    if (process.env.GEMINI_API_KEY) {
+      this.providers["gemini"] = new GeminiAIProvider();
     }
   }
 

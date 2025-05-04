@@ -46,7 +46,10 @@ Claude
 
 Cloudflare with confgiurable model
 
+Gemini
+
 Amazon Bedrock (not implemented yet)
+
 
 ## Available Scrapers
 

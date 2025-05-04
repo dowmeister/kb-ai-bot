@@ -2,17 +2,15 @@ import { PluggableSiteScraper } from "../services/scraper-service";
 
 async function main() {
   const scraper = new PluggableSiteScraper(
-    "https://trucksimulator.wiki.gg/wiki/States",
+    "https://truckersmp.com/knowledge-base/article/19",
     {
       maxPages: 1,
     }
   );
-  const result = await scraper.scrapeSingleUrl(
-    "https://trucksimulator.wiki.gg/wiki/States"
-  );
+  const result = await scraper.scrape();
 
   if (result) {
-    console.log(result.content);
+    console.log(result[0].content); // Print the text of the first content item
   }
 }
 

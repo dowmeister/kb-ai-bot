@@ -190,9 +190,7 @@ export class PluggableSiteScraper {
 
     const startUrlParsed = new URL(this.startUrl);
     const domainOnly = startUrlParsed.hostname;
-    const rootPath = startUrlParsed.pathname.endsWith("/")
-      ? startUrlParsed.pathname
-      : startUrlParsed.pathname + "/";
+    const rootPath = startUrlParsed.pathname;
 
     const delay = this.options.delay || 1000;
     const maxPages = this.options.maxPages || 100;
@@ -346,8 +344,15 @@ export class PluggableSiteScraper {
       // Wait for content to stabilize
       await this.page!.waitForTimeout(500);
 
-      const siteType =
-        this.extractors.find((e) => e.detect(this.page!))?.name || "unknown";
+      let siteType = "unknown";
+
+      for (const extractor of this.extractors) {
+        if (await extractor.detect(this.page!)) {
+          siteType = extractor.name;
+          break;
+        }
+      }
+      
       // Extract content using the appropriate extractor
       const content = await this.extractContent(this.page!, siteType);
 
