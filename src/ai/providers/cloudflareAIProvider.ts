@@ -2,7 +2,7 @@ import axios from "axios";
 import { AIProvider } from "./baseAIProvider";
 import { OpenAIProvider } from "./openAIProvider";
 import OpenAI, { ClientOptions } from "openai";
-import { DEFAULT_PROMPT } from "../constants";
+import { DEFAULT_PROMPT } from "../../helpers/constants";
 
 export default class CloudflareAIProvider implements AIProvider {
   private accountId: string = process.env.CLOUDFLARE_ACCOUNT_ID || "";

@@ -43,7 +43,7 @@ Most of the code has been written using AI :)
 - 🗣️ Natural language answering powered by a local LLM (Llama 3 / Mistral) via Ollama, OpenAI, Cloudflare AI or Amazon Bedrock
 - 🐳 Fully Dockerized setup (MongoDB, Qdrant, Embedding server, Ollama)
 - 🖥️ Command-line interface (CLI) for easy question-and-answer interaction
-- 🤖 Discord Bot with Slash Commands and capability to reply automatically to simple questions or what seems a question :)
+- 🤖 Discord Bot with Slash Commands and direct mention capability for replying questions
 
 ---
 
@@ -164,6 +164,8 @@ npm run discord-bot
 ```
 
 ### Available Commands
+
+via direct mentions: `@bot please help me!`
 
 `/ask [query] [user]` : Ask the bot about a specific query, using the optional parameter `user` the bot, replying, will mention the given user
 

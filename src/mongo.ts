@@ -1,5 +1,5 @@
 import { MongoClient, Db, Collection } from "mongodb";
-import { logInfo, logWarning, logError } from "./logger";
+import { logInfo, logWarning, logError } from "./helpers/logger";
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017";
 const DB_NAME = process.env.MONGO_DB_NAME || "knowledge_base";

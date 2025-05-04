@@ -11,16 +11,16 @@ import {
   Routes,
   OAuth2Scopes,
 } from "discord.js";
-import { askQuestion } from "./ask";
+import { askQuestion } from "../ai/ask";
 import {
   saveAnswer,
   saveDiscordMessage,
   saveMissedAnswer,
   verifyUserMessage,
-} from "./mongo";
-import { logInfo, logError, logSuccess } from "./logger";
-import { buildReply, isHelpRequestSimple } from "./utils";
-import { embeddingService } from "./services/embedding-service";
+} from "../mongo";
+import { logInfo, logError, logSuccess } from "../helpers/logger";
+import { buildReply, isHelpRequestSimple } from "../helpers/utils";
+import { embeddingService } from "../services/embedding-service";
 import { knowledgeCommands } from "./commands/knowledge-commands";
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
@@ -128,14 +128,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.MessageCreate, async (message) => {
   try {
+    // Ignore messages from bots
     if (message.author.bot) return;
 
-    const userMessage = message.content.trim();
-    if (userMessage.length === 0) return;
+    // The user mentioned the bot
+    if (
+      message.mentions &&
+      message.mentions.users.size > 0 &&
+      message.mentions.users.first()?.id === client.user?.id
+    ) {
+      const userMessage = message.content.trim();
+      if (userMessage.length === 0) return;
 
-    const member = await message.guild?.members.fetch(message.author.id);
-    const isModerator = member ? isMemberModerator(member) : false;
+      const member = await message.guild?.members.fetch(message.author.id);
+      const isModerator = member ? isMemberModerator(member) : false;
 
+      /*
     let trustScore = isModerator ? 2.0 : 1.0;
     let parentMessageId = undefined;
 
@@ -146,44 +154,45 @@ client.on(Events.MessageCreate, async (message) => {
         trustScore = 2.5;
       }
     }
+      */
 
-    await saveDiscordMessage({
-      guildId: message.guildId,
-      content: userMessage,
-      authorId: message.author.id,
-      authorUsername: message.author.username,
-      isModerator,
-      timestamp: new Date(message.createdTimestamp),
-      channelId: message.channelId,
-      messageId: message.id,
-      parentMessageId,
-      trustScore,
-    });
+      await saveDiscordMessage({
+        guildId: message.guildId,
+        content: userMessage,
+        authorId: message.author.id,
+        authorUsername: message.author.username,
+        isModerator,
+        timestamp: new Date(message.createdTimestamp),
+        channelId: message.channelId,
+        messageId: message.id,
+      });
 
-    const embedding = await embeddingService.generateEmbedding(userMessage);
+      const embedding = await embeddingService.generateEmbedding(userMessage);
 
-    if (!embedding) {
-      logError("Failed to get embedding for the message.");
-      return;
-    }
+      if (!embedding) {
+        logError("Failed to get embedding for the message.");
+        return;
+      }
 
-    if (embedding.length === 0) {
-      logError("Empty embedding received.");
-      return;
-    }
+      if (embedding.length === 0) {
+        logError("Empty embedding received.");
+        return;
+      }
 
+      /*
     // Don't reply to messages from moderators
     if (
       isModerator &&
       message.channel.id != process.env.DISCORD_TESTING_CHANNEL_ID
     )
       return;
+      */
 
-    // don't reply to other chained replies
-    if (message.reference?.messageId) return;
+      // don't reply to other chained replies
+      //if (message.reference?.messageId) return;
 
-    // New part: if it's a help request, try to answer
-    if (isHelpRequestSimple(userMessage)) {
+      // New part: if it's a help request, try to answer
+      //if (isHelpRequestSimple(userMessage)) {
       // Create a typing indicator
       await message.channel.sendTyping();
 
@@ -249,8 +258,6 @@ client.on(Events.MessageCreate, async (message) => {
           channelId: message.channelId,
         });
       }
-    } else {
-      logInfo(`Ignoring non-help request: ${userMessage}`);
     }
   } catch (error) {
     logError(`Error handling Discord message: ${(error as Error).message}`);

@@ -1,5 +1,5 @@
+import { DEFAULT_PROMPT } from "../../helpers/constants";
 import { AIProvider } from "./baseAIProvider";
-import { DEFAULT_PROMPT } from "../constants";
 import { createUserContent, GoogleGenAI } from "@google/genai";
 
 export default class GeminiAIProvider implements AIProvider {

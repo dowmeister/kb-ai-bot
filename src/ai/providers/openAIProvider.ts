@@ -1,6 +1,6 @@
 import { ClientOptions, OpenAI } from "openai";
 import { AIProvider } from "./baseAIProvider";
-import { DEFAULT_PROMPT } from "../constants";
+import { DEFAULT_PROMPT } from "../../helpers/constants";
 
 export class OpenAIProvider implements AIProvider {
   protected client: OpenAI;

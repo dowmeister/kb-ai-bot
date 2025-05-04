@@ -1,7 +1,7 @@
 // src/embeddings/tei-embedder.ts
 import axios from "axios";
-import { logError, logInfo, logSuccess, logWarning } from "../logger";
-import { splitTextIntoChunks } from "../utils";
+import { logError, logInfo, logSuccess, logWarning } from "../helpers/logger";
+import { splitTextIntoChunks } from "../helpers/utils";
 import { qdrantService } from "./qdrant-service";
 
 export class TextEmbeddingsInferenceService {

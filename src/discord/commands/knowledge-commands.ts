@@ -6,11 +6,10 @@ import {
   ChatInputCommandInteraction,
   TextChannel,
 } from "discord.js";
-import { embeddingService } from "../services/embedding-service";
-import { askQuestion } from "../ask";
-import { buildReply } from "../utils";
-import { qdrantService } from "../services/qdrant-service";
-import { exec } from "child_process";
+import { embeddingService } from "../../services/embedding-service";
+import { askQuestion } from "../../ai/ask";
+import { buildReply } from "../../helpers/utils";
+import { qdrantService } from "../../services/qdrant-service";
 
 export const knowledgeCommands = [
   {

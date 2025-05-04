@@ -1,4 +1,3 @@
-import { AmazonBedrockAIProvider } from "./providers/amazonBedrockAIProvider";
 import { ClaudeProvider } from "./providers/anthropicAIProvider";
 import { AIProvider } from "./providers/baseAIProvider";
 import CloudflareAIProvider from "./providers/cloudflareAIProvider";

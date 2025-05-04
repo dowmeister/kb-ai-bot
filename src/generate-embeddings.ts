@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { embeddingService } from "./services/embedding-service";
 import { getAllPages } from "./mongo";
-import { logInfo } from "./logger";
+import { logInfo } from "./helpers/logger";
 import { qdrantService } from "./services/qdrant-service";
 
 async function main() {

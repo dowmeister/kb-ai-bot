@@ -1,6 +1,6 @@
 import { configDotenv } from "dotenv";
 import { connectMongo, getMongoClient } from "./mongo";
-import { logInfo, logSuccess, logWarning, logError } from "./logger";
+import { logInfo, logSuccess, logWarning, logError } from "./helpers/logger";
 import { QdrantService } from "./services/qdrant-service";
 
 configDotenv();

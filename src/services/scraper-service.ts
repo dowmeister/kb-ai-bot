@@ -1,5 +1,5 @@
 import { Browser, BrowserContext, Page, chromium } from "playwright";
-import { logError, logInfo, logSuccess, logWarning } from "../logger";
+import { logError, logInfo, logSuccess, logWarning } from "../helpers/logger";
 import { MediaWikiContentExtractor } from "../contentProviders/mediawiki-content-extractor";
 import { WordPressContentExtractor } from "../contentProviders/wordpress-content-extractor";
 import { StandardContentExtractor } from "../contentProviders/standard-content-extractor";
@@ -292,14 +292,30 @@ export class PluggableSiteScraper {
           linkUrl.hash = ""; // Remove fragment
           const cleanLink = linkUrl.toString();
 
-          if (
-            !this.visited.has(cleanLink) &&
-            this.isSameDomain(linkUrl, domainOnly) &&
-            this.isInSameRoot(linkUrl, rootPath) &&
-            !this.shouldIgnoreUrl(cleanLink)
-          ) {
-            pendingUrls.push(cleanLink);
+          if (this.visited.has(cleanLink)) {
+            //logWarning(`Already visited: ${cleanLink}`);
+            continue;
           }
+
+          if (!this.isSameDomain(linkUrl, domainOnly)) {
+            logWarning(`Skipping different domain link: ${cleanLink}`);
+            this.visited.add(cleanLink); // Mark as visited to avoid re-adding
+            continue;
+          }
+
+          if (!this.isInSameRoot(linkUrl, rootPath)) {
+            logWarning(`Skipping different root link: ${cleanLink}`);
+            this.visited.add(cleanLink); // Mark as visited to avoid re-adding
+            continue;
+          }
+
+          if (this.shouldIgnoreUrl(cleanLink)) {
+            logWarning(`Ignoring URL in ignore list: ${cleanLink}`);
+            this.visited.add(cleanLink); // Mark as visited to avoid re-adding
+            continue;
+          }
+
+          pendingUrls.push(cleanLink);
         }
 
         // Respect delay between requests
@@ -352,7 +368,7 @@ export class PluggableSiteScraper {
           break;
         }
       }
-      
+
       // Extract content using the appropriate extractor
       const content = await this.extractContent(this.page!, siteType);
 

@@ -1,7 +1,7 @@
 // src/services/qdrant-service.ts
 
 import { QdrantClient } from "@qdrant/js-client-rest";
-import { logError, logInfo } from "../logger";
+import { logError, logInfo } from "../helpers/logger";
 import { v4 as uuidv4 } from "uuid";
 
 /**

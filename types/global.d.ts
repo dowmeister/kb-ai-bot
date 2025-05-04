@@ -30,7 +30,7 @@ interface DiscordMessage {
   channelId: string;
   messageId: string;
   parentMessageId?: string;
-  trustScore: number;
+  trustScore?: number;
   verified?: boolean;
   verifiedAnswer?: string;
 }

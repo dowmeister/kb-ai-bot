@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { scrapeSite } from "./services/scraper-service";
 import { saveOrUpdatePage, getAllPages } from "./mongo";
-import { logInfo, logSuccess, logWarning, logError } from "./logger";
+import { logInfo, logSuccess, logWarning, logError } from "./helpers/logger";
 import { Command } from "commander";
 import { embeddingService } from "./services/embedding-service";
 import { qdrantService } from "./services/qdrant-service";

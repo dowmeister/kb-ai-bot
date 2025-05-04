@@ -1,6 +1,6 @@
 import axios from "axios";
 import { AIProvider } from "./baseAIProvider";
-import { DEFAULT_PROMPT } from "../constants";
+import { DEFAULT_PROMPT } from "../../helpers/constants";
 
 export default class OllamaAIProvider implements AIProvider {
   private baseUrl: string = "http://localhost:11434";

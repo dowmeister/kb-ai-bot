@@ -1,14 +1,7 @@
-import { configDotenv } from "dotenv";
-import { QdrantClient } from "@qdrant/js-client-rest";
-import { logInfo, logSuccess, logWarning, logError } from "./logger";
+import { logInfo, logSuccess, logWarning, logError } from "../helpers/logger";
 import { aiRouter } from "./aiRouter";
-import { embeddingService } from "./services/embedding-service";
-import { qdrantService } from "./services/qdrant-service";
-
-const client = new QdrantClient({
-  url: process.env.QDRANT_URI || "http://localhost:6333",
-});
-
+import { embeddingService } from "../services/embedding-service";
+import { qdrantService } from "../services/qdrant-service";
 
 /**
  * Asks a question and retrieves an answer using an AI model.

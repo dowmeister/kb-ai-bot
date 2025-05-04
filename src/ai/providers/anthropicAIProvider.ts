@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AIProvider } from "./baseAIProvider";
-import { DEFAULT_PROMPT } from "../constants";
-import { embeddingService } from "../services/embedding-service";
+import { DEFAULT_PROMPT } from "../../helpers/constants";
+import { embeddingService } from "../../services/embedding-service";
 
 export class ClaudeProvider implements AIProvider {
   protected client: Anthropic;

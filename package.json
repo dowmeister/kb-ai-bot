@@ -8,7 +8,7 @@
     "refresh-scrape": "npm run refresh && npm run scrape",
     "scrape": "ts-node src/scrape.ts",
     "generate-embeddings": "ts-node src/generate-embeddings.ts",
-    "discord-bot": "ts-node src/discord-bot.ts",
+    "discord-bot": "ts-node src/discord/discord-bot.ts",
     "cli": "ts-node src/cli.ts",
     "test-scraper": "ts-node src/tests/test-scraper.ts"
   },
