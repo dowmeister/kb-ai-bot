@@ -42,6 +42,8 @@ export class StandardContentExtractor extends BaseContentExtractor {
         "input",
         "select",
         "textarea",
+        "[role='alert']",
+        ".alert",
       ];
 
       elementsToRemove.forEach((selector) => {

@@ -83,7 +83,7 @@ export class TextEmbeddingsInferenceService {
     document: string
   ): Promise<Array<{ text: string; embedding: number[] }>> {
     // Split the document into chunks
-    const chunks = splitTextIntoChunks(document);
+    const chunks = splitTextIntoChunks(document, 150);
 
     const result: Array<{ text: string; embedding: number[] }> = [];
 

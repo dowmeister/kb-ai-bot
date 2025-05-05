@@ -70,7 +70,13 @@ Gemini
 
 Amazon Bedrock (not implemented yet)
 
-## Available Scrapers
+## Available Content Scrapers
+
+Pluggable Website Scraper
+
+XML Sitemap
+
+### Available Website Scrapers
 
 The Scraping system will detect automatically what kind of extractor can handle the site content, for each page.
 

@@ -111,3 +111,46 @@ interface SiteScraperOptions {
   timeout?: number;
   userAgent?: string;
 }
+
+/**
+ * Interface for sitemap URLs
+ */
+interface SitemapUrl {
+  loc: string;
+  lastmod?: string;
+  changefreq?: string;
+  priority?: string;
+}
+
+/**
+ * Interface for sitemap index
+ */
+interface SitemapIndex {
+  sitemapindex: {
+    sitemap: Array<{
+      loc: string;
+      lastmod?: string;
+    }>;
+  };
+}
+
+/**
+ * Interface for regular sitemap
+ */
+interface Sitemap {
+  urlset: {
+    url: SitemapUrl[] | SitemapUrl;
+  };
+}
+
+/**
+ * Options for the sitemap scraper
+ */
+interface SitemapScraperOptions {
+  maxUrls?: number;
+  delay?: number;
+  ignorePatterns?: string[];
+  priorityThreshold?: number;
+  concurrency?: number;
+  scraperOptions?: SiteScraperOptions;
+}

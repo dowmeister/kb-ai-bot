@@ -7,45 +7,88 @@ import { saveOrUpdatePage } from "../mongo";
 import { EchoKnowledgeBaseExtractor } from "../contentProviders/echo-kb-content-extractor";
 
 /**
- * A pluggable site scraper that can scrape web pages, extract content, and follow links
- * within the same domain and root path. It supports multiple content extractors and
- * allows for customization through options.
+ * The `PluggableSiteScraper` class provides a flexible and extensible web scraping service
+ * that supports multiple content extractors for different site types. It allows scraping
+ * of web pages starting from a given URL, extracting meaningful content, and collecting links
+ * for further scraping within the same domain and root path.
  *
- * The scraper uses Playwright to navigate web pages and extract content. It can scrape
- * multiple pages starting from a given URL or scrape a single URL without following links.
+ * ### Features:
+ * - Supports pluggable content extractors for different site types.
+ * - Handles domain and root path restrictions to limit scraping scope.
+ * - Respects configurable options such as delay, maximum pages, and timeout.
+ * - Maintains a visited URL set to avoid duplicate processing.
+ * - Provides methods for scraping multiple pages or a single URL.
  *
- * @class PluggableSiteScraper
- * @example
+ * ### Usage:
  * ```typescript
- * const scraper = new PluggableSiteScraper("https://example.com", {
- *   maxPages: 50,
+ * const scraper = new PluggableSiteScraper({
  *   delay: 2000,
- *   userAgent: "CustomUserAgent/1.0",
+ *   maxPages: 50,
+ *   timeout: 30000,
+ *   ignoreList: "example.com,ignore.com",
  * });
- * await scraper.scrape();
+ *
+ * const results = await scraper.scrape("https://example.com");
+ * console.log(results);
+ *
+ * const singleResult = await scraper.scrapeSingleUrl("https://example.com/page");
+ * console.log(singleResult);
  * ```
  *
- * @remarks
- * - The scraper supports registering custom content extractors.
- * - It respects an ignore list to skip specific URLs.
- * - It ensures that only pages within the same domain and root path are scraped.
+ * ### Constructor:
+ * @param options - Configuration options for the scraper, including delay, maxPages, timeout, and ignoreList.
  *
- * @param startUrl - The starting URL for the scraper.
- * @param options - Configuration options for the scraper.
+ * ### Methods:
+ * - `registerExtractor(extractor: ContentExtractor): void`
+ *   Registers a new content extractor to handle specific site types.
  *
- * @property visited - A set of visited URLs to prevent duplicate scraping.
- * @property browser - The Playwright browser instance.
- * @property context - The Playwright browser context.
- * @property page - The Playwright page instance.
- * @property results - The list of scraped pages.
- * @property ignoreList - A list of URL patterns to ignore during scraping.
- * @property extractors - A list of registered content extractors.
+ * - `initialize(): Promise<void>`
+ *   Initializes the browser and page for scraping.
  *
- * @method registerExtractor - Registers a new content extractor.
- * @method initialize - Initializes the browser and page.
- * @method close - Closes the browser and releases resources.
- * @method scrape - Scrapes multiple pages starting from the `startUrl`.
- * @method scrapeSingleUrl - Scrapes a single URL without following links.
+ * - `close(): Promise<void>`
+ *   Closes the browser and releases resources.
+ *
+ * - `scrape(startUrl: string): Promise<ScrapedPage[]>`
+ *   Scrapes web pages starting from the specified URL, collecting content and links.
+ *
+ * - `scrapeSingleUrl(url: string): Promise<ScrapedPage | null>`
+ *   Scrapes a single URL and extracts content using the appropriate extractor.
+ *
+ * ### Private Methods:
+ * - `isSameDomain(url: URL, domain: string): boolean`
+ *   Checks if a URL belongs to the same domain.
+ *
+ * - `isInSameRoot(url: URL, rootPath: string): boolean`
+ *   Checks if a URL is within the same root path.
+ *
+ * - `shouldIgnoreUrl(url: string): boolean`
+ *   Determines if a URL should be ignored based on the ignore list.
+ *
+ * - `extractContent(page: Page, siteType: string): Promise<PageContent | null>`
+ *   Extracts content from a web page using the appropriate content extractor.
+ *
+ * ### Remarks:
+ * - The scraper uses Playwright for browser automation.
+ * - Extracted content is saved or updated using the `saveOrUpdatePage` function.
+ * - The class is designed to be extensible by registering custom content extractors.
+ *
+ * ### Dependencies:
+ * - Playwright (`chromium`, `Browser`, `BrowserContext`, `Page`).
+ * - Custom content extractors implementing the `ContentExtractor` interface.
+ *
+ * ### Example:
+ * ```typescript
+ * const scraper = new PluggableSiteScraper({
+ *   delay: 1000,
+ *   maxPages: 10,
+ *   timeout: 20000,
+ * });
+ *
+ * await scraper.initialize();
+ * const results = await scraper.scrape("https://example.com");
+ * console.log(results);
+ * await scraper.close();
+ * ```
  */
 export class PluggableSiteScraper {
   private visited = new Set<string>();
@@ -56,10 +99,7 @@ export class PluggableSiteScraper {
   private ignoreList: string[] = [];
   private extractors: ContentExtractor[] = [];
 
-  constructor(
-    private startUrl: string,
-    private options: SiteScraperOptions = {}
-  ) {
+  constructor(private options: SiteScraperOptions = {}) {
     this.ignoreList =
       options.ignoreList?.split(",") ||
       process.env.SCRAPING_IGNORE_LIST?.split(",") ||
@@ -70,8 +110,6 @@ export class PluggableSiteScraper {
     this.registerExtractor(new EchoKnowledgeBaseExtractor());
     this.registerExtractor(new WordPressContentExtractor());
     this.registerExtractor(new StandardContentExtractor());
-
-    logInfo(`Initialized PluggableSiteScraper for ${startUrl}`);
   }
 
   /**
@@ -86,11 +124,15 @@ export class PluggableSiteScraper {
    * Initialize the browser and page
    */
   async initialize(): Promise<void> {
+    logInfo("Initializing browser and page for scraping...");
+
     this.browser = await chromium.launch();
     this.context = await this.browser.newContext({
-      userAgent: this.options.userAgent || "Mozilla/5.0 SiteScraperBot/1.0",
+      userAgent: this.options.userAgent || "KnowledgeFox Scraper/1.0",
     });
     this.page = await this.context.newPage();
+
+    logInfo("Browser and page initialized successfully.");
   }
 
   /**
@@ -99,6 +141,8 @@ export class PluggableSiteScraper {
   async close(): Promise<void> {
     if (this.context) await this.context.close();
     if (this.browser) await this.browser.close();
+
+    logInfo("Browser and resources closed successfully.");
   }
 
   /**
@@ -157,38 +201,33 @@ export class PluggableSiteScraper {
   }
 
   /**
-   * Scrapes web pages starting from the specified `startUrl` and collects content
-   * and links within the same domain and root path. The method respects the
-   * configured delay, maximum pages, and timeout options.
+   * Scrapes web pages starting from the given URL and collects content and links
+   * based on specified criteria. The method ensures that only pages within the
+   * same domain and root path are processed, and it respects a delay between
+   * requests to avoid overloading the server.
    *
-   * @returns {Promise<ScrapedPage[]>} A promise that resolves to an array of scraped pages.
+   * @param startUrl - The starting URL for the scraping process.
+   * @returns A promise that resolves to an array of `ScrapedPage` objects containing
+   *          the scraped content, title, URL, and site type.
    *
-   * @remarks
-   * - The method initializes the browser and page if they are not already initialized.
-   * - It ensures that only pages within the same domain and root path are scraped.
-   * - URLs in the ignore list are skipped.
-   * - Extracted content is saved or updated using the `saveOrUpdatePage` function.
-   * - Links from the current page are collected and added to the queue if they meet the criteria.
-   * - A delay is respected between requests to avoid overloading the server.
+   * The scraping process includes:
+   * - Navigating to the specified URL and extracting content using registered extractors.
+   * - Filtering links to ensure they belong to the same domain and root path.
+   * - Ignoring URLs based on a predefined ignore list.
+   * - Respecting a maximum number of pages to scrape and a timeout for page navigation.
    *
-   * @throws {Error} If navigation or content extraction fails for a specific URL.
+   * The method logs progress, warnings, and errors during the scraping process.
+   * It also saves or updates the scraped content using the `saveOrUpdatePage` function.
    *
-   * @example
-   * ```typescript
-   * const scraperService = new ScraperService({
-   *   startUrl: "https://example.com",
-   *   options: { delay: 2000, maxPages: 50, timeout: 30000 },
-   * });
-   * const results = await scraperService.scrape();
-   * console.log(results);
-   * ```
+   * @throws An error if the scraping process encounters issues, such as navigation timeouts
+   *         or content extraction failures.
    */
-  public async scrape(): Promise<ScrapedPage[]> {
+  public async scrape(startUrl: string): Promise<ScrapedPage[]> {
     if (!this.browser || !this.page) {
       await this.initialize();
     }
 
-    const startUrlParsed = new URL(this.startUrl);
+    const startUrlParsed = new URL(startUrl);
     const domainOnly = startUrlParsed.hostname;
     const rootPath = startUrlParsed.pathname;
 
@@ -196,9 +235,9 @@ export class PluggableSiteScraper {
     const maxPages = this.options.maxPages || 100;
     const timeout = this.options.timeout || 30000;
 
-    const pendingUrls: string[] = [this.startUrl];
+    const pendingUrls: string[] = [startUrl];
 
-    logInfo(`Starting scraping from: ${this.startUrl}`);
+    logInfo(`Starting scraping from: ${startUrl}`);
 
     while (pendingUrls.length > 0 && this.results.length < maxPages) {
       const currentUrl = pendingUrls.shift()!;
@@ -266,6 +305,7 @@ export class PluggableSiteScraper {
             content: content.content,
             title: content.title,
             siteType,
+            content_length: content.content.length,
           };
 
           const shouldUpdate = await saveOrUpdatePage(scrapedPage);
@@ -383,7 +423,11 @@ export class PluggableSiteScraper {
           content: content.content,
           title: content.title,
           siteType,
+          content_length: content.content.length,
         };
+
+        const shouldUpdate = await saveOrUpdatePage(scrapedPage);
+        scrapedPage.shouldUpdate = shouldUpdate;
 
         logSuccess(
           `Extracted content from single URL: ${url} (${siteType}): ${content.content.length} characters`
@@ -410,9 +454,9 @@ export class PluggableSiteScraper {
  * @throws Any errors encountered during the scraping process.
  */
 export async function scrapeSite(startUrl: string): Promise<ScrapedPage[]> {
-  const scraper = new PluggableSiteScraper(startUrl);
+  const scraper = new PluggableSiteScraper();
   try {
-    return await scraper.scrape();
+    return await scraper.scrape(startUrl);
   } finally {
     await scraper.close();
   }

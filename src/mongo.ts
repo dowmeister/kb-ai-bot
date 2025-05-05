@@ -76,7 +76,7 @@ export async function saveOrUpdatePage(page: ScrapedPage): Promise<boolean> {
           content: page.content,
           summary: page.summary,
           updatedAt: new Date(),
-          content_length: page.content.length,
+          content_length: page.content_length,
           siteType: page.siteType,
         },
       }
