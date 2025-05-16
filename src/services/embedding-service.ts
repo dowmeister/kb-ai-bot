@@ -3,6 +3,7 @@ import axios from "axios";
 import { logError, logInfo, logSuccess, logWarning } from "../helpers/logger";
 import { splitTextIntoChunks } from "../helpers/utils";
 import { qdrantService } from "./qdrant-service";
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 
 export class TextEmbeddingsInferenceService {
   private apiUrl: string;
@@ -83,14 +84,18 @@ export class TextEmbeddingsInferenceService {
     document: string
   ): Promise<Array<{ text: string; embedding: number[] }>> {
     // Split the document into chunks
-    const chunks = splitTextIntoChunks(document, 150);
+    const splitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 384,
+      chunkOverlap: 1,
+    });
+    const chunks = await splitter.createDocuments([document]);
 
     const result: Array<{ text: string; embedding: number[] }> = [];
 
     for (const chunk of chunks) {
       try {
-        const embedding = await this.generateEmbedding(chunk);
-        result.push({ text: chunk, embedding });
+        const embedding = await this.generateEmbedding(chunk.pageContent);
+        result.push({ text: chunk.pageContent, embedding });
       } catch (error) {
         logError("Error generating embedding for chunk:", error);
       }
@@ -117,13 +122,13 @@ export class TextEmbeddingsInferenceService {
    *   - Upserts the embeddings into Qdrant with metadata such as URL, title, text, and source.
    * - Logs the number of embeddings and chunks created.
    */
-  async generateEmbeddingsFromPages(pages: ScrapedPage[]) {
+  async generateEmbeddingsFromPages(pages: IKnowledgeDocument[]) {
     let embeddingsCount = 0;
     let chunksCount = 0;
 
     for (const page of pages) {
       try {
-        await qdrantService.deleteVectorsByUrl(page.url);
+        await qdrantService.deleteVectorsByUrl(page.key);
 
         /*
         if (!page.summary || page.summary.length === 0) {
@@ -148,8 +153,8 @@ export class TextEmbeddingsInferenceService {
             url: page.url,
             title: page.title,
             text: page.summary,
-            key: `${Buffer.from(page.url).toString("base64")}-summary`,
-            is_summary: true,
+            documentKey: page.key,
+            isSummary: true,
             source: "web-scraper",
           });
         }
@@ -162,9 +167,9 @@ export class TextEmbeddingsInferenceService {
             url: page.url,
             title: page.title,
             text: chunk.text,
-            chunk_index: i,
-            key: `${Buffer.from(page.url).toString("base64")}-${i}`,
-            is_summary: false,
+            chunkIndex: i,
+            documentKey: page.key,
+            isSummary: false,
             source: "web-scraper",
           });
 

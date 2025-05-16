@@ -1,10 +1,12 @@
 import "dotenv/config";
 import { scrapeSite } from "./services/scraper-service";
-import { saveOrUpdatePage, getAllPages } from "./mongo";
+import { initMongoose } from "./mongo";
 import { logInfo, logSuccess, logWarning, logError } from "./helpers/logger";
 import { Command } from "commander";
 import { embeddingService } from "./services/embedding-service";
 import { qdrantService } from "./services/qdrant-service";
+import KnowledgeDocument from "./database/models/knowledgeDocument";
+import mongoose, { connect } from "mongoose";
 
 const program = new Command();
 
@@ -20,6 +22,9 @@ program
 const options = program.opts();
 
 async function main() {
+
+  await initMongoose();
+
   const startUrl: string | undefined = process.env.START_URL;
   const skipScrape: boolean = options.skipScrape;
 
@@ -27,31 +32,40 @@ async function main() {
     throw new Error("Missing START_URL in .env file");
   }
 
-  let pages: ScrapedPage[] = [];
+  let scrapingResult: WebScraperResults = {
+    pages: [],
+  };
 
   if (skipScrape) {
     logInfo("Skipping scraping phase. Loading pages from MongoDB...");
-    pages = await getAllPages();
+    scrapingResult.pages = await KnowledgeDocument.find({});
   } else {
     logInfo(`Starting scraping from ${startUrl}...`);
-    pages = await scrapeSite(startUrl);
-    logInfo(`Found ${pages.length} pages.`);
+    scrapingResult = await scrapeSite(startUrl);
   }
 
-  logSuccess(`Indexed ${pages.length} pages.`);
+  logSuccess(`Indexed ${scrapingResult.pages.length} pages.`);
 
   await qdrantService.initializeCollection();
 
-  const pagesToUpdate = pages.filter((page) => page.shouldUpdate);
+  const pagesToUpdate = scrapingResult.pages.filter(
+    (page) => page.shouldUpdate
+  );
 
   if (pagesToUpdate.length === 0) {
     logInfo("No pages to update. Exiting...");
     return;
   }
 
-  await embeddingService.generateEmbeddingsFromPages(
-    pages.filter((page) => page.shouldUpdate)
-  );
+  const pagesToEmbed: IKnowledgeDocument[] = [];
+
+  scrapingResult.pages.forEach((page) => {
+    if (page.shouldUpdate) {
+      pagesToEmbed.push(page.document);
+    }
+  });
+
+  await embeddingService.generateEmbeddingsFromPages(pagesToEmbed);
 
   logSuccess("Done!");
 }

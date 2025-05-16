@@ -357,6 +357,42 @@ export class QdrantService {
       throw error;
     }
   }
+
+  async deleteVectorsByKey(key: string): Promise<number> {
+    try {
+      // Create a filter to match the URL exactly
+      const filter = {
+        must: [
+          {
+            key: "documentKey",
+            match: { value: key },
+          },
+        ],
+      };
+
+      // First count how many vectors will be deleted
+      const countResult = await this.client.count(this.collectionName, {
+        filter,
+        exact: true,
+      });
+
+      if (countResult.count === 0) {
+        logInfo(`No vectors found for DocumentKey ${key}. Nothing to delete.`);
+        return 0;
+      }
+
+      // Delete the vectors
+      await this.client.delete(this.collectionName, {
+        filter,
+        wait: true,
+      });
+
+      return countResult.count;
+    } catch (error) {
+      logError(`Error deleting vectors for DocumentKey ${key}:`, error);
+      throw error;
+    }
+  }
 }
 
 export const qdrantService = new QdrantService();

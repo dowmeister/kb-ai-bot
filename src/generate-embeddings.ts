@@ -1,11 +1,15 @@
 import "dotenv/config";
 import { embeddingService } from "./services/embedding-service";
-import { getAllPages } from "./mongo";
+import { initMongoose } from "./mongo";
 import { logInfo } from "./helpers/logger";
 import { qdrantService } from "./services/qdrant-service";
+import KnowledgeDocument from "./database/models/knowledgeDocument";
 
 async function main() {
-  const pages: ScrapedPage[] = await getAllPages();
+
+  await initMongoose();
+
+  const pages: IKnowledgeDocument[] = await KnowledgeDocument.find({});
 
   logInfo(`Found ${pages.length} pages.`);
 

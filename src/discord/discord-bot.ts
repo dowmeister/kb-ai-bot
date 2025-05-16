@@ -10,18 +10,15 @@ import {
   REST,
   Routes,
   OAuth2Scopes,
+  TextChannel,
 } from "discord.js";
 import { askQuestion } from "../ai/ask";
-import {
-  saveAnswer,
-  saveDiscordMessage,
-  saveMissedAnswer,
-  verifyUserMessage,
-} from "../mongo";
+import { initMongoose } from "../mongo";
 import { logInfo, logError, logSuccess } from "../helpers/logger";
 import { buildReply, isHelpRequestSimple } from "../helpers/utils";
 import { embeddingService } from "../services/embedding-service";
 import { knowledgeCommands } from "./commands/knowledge-commands";
+import DiscordMessage from "../database/models/discordMessage";
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
@@ -143,28 +140,14 @@ client.on(Events.MessageCreate, async (message) => {
       const member = await message.guild?.members.fetch(message.author.id);
       const isModerator = member ? isMemberModerator(member) : false;
 
-      /*
-    let trustScore = isModerator ? 2.0 : 1.0;
-    let parentMessageId = undefined;
-
-    if (message.reference?.messageId) {
-      parentMessageId = message.reference.messageId;
-      if (isModerator) {
-        await verifyUserMessage(parentMessageId, message.content);
-        trustScore = 2.5;
-      }
-    }
-      */
-
-      await saveDiscordMessage({
+      const savedDiscordMessage = await DiscordMessage.create({
         guildId: message.guildId,
         content: userMessage,
         authorId: message.author.id,
         authorUsername: message.author.username,
-        isModerator,
-        timestamp: new Date(message.createdTimestamp),
         channelId: message.channelId,
         messageId: message.id,
+        channelName: (message.channel as TextChannel).name,
       });
 
       const embedding = await embeddingService.generateEmbedding(userMessage);
@@ -176,24 +159,11 @@ client.on(Events.MessageCreate, async (message) => {
 
       if (embedding.length === 0) {
         logError("Empty embedding received.");
+
+        savedDiscordMessage.updateOne({ replied: false });
         return;
       }
 
-      /*
-    // Don't reply to messages from moderators
-    if (
-      isModerator &&
-      message.channel.id != process.env.DISCORD_TESTING_CHANNEL_ID
-    )
-      return;
-      */
-
-      // don't reply to other chained replies
-      //if (message.reference?.messageId) return;
-
-      // New part: if it's a help request, try to answer
-      //if (isHelpRequestSimple(userMessage)) {
-      // Create a typing indicator
       await message.channel.sendTyping();
 
       const answer = await askQuestion(userMessage);
@@ -201,20 +171,26 @@ client.on(Events.MessageCreate, async (message) => {
       if (answer && answer.answer.length > 0 && answer.replied) {
         logInfo(`Answering help request: ${userMessage}`);
 
+        if (
+          answer.answer ==
+          "I'm sorry, I don't have enough information to answer."
+        ) {
+          await message.reply(
+            "❓ I couldn't find enough information to answer that."
+          );
+          await savedDiscordMessage.updateOne({
+            replied: false,
+          });
+          return;
+        }
+
         const embed = buildReply(answer);
 
         const sentMessage = await message.reply({ embeds: [embed] });
 
-        saveAnswer({
+        await savedDiscordMessage.updateOne({
+          replied: true,
           answer: answer.answer,
-          urls: answer.urls,
-          question: userMessage,
-          questionMessageId: message.id,
-          answerMessageId: sentMessage.id,
-          questionUserId: message.author.id,
-          questionUsername: message.author.username,
-          guildId: message.guildId,
-          channelId: message.channelId,
         });
 
         await sentMessage.react("👍");
@@ -233,7 +209,6 @@ client.on(Events.MessageCreate, async (message) => {
           if (user.bot) return; // Ignore bot reactions
           if (isMemberModerator(user)) {
             if (reaction.emoji.name === "👍") {
-              logInfo(`User ${user.username} liked the answer.`);
             } else if (reaction.emoji.name === "👎") {
               logInfo(`User ${user.username} disliked the answer.`);
             }
@@ -248,14 +223,8 @@ client.on(Events.MessageCreate, async (message) => {
           "❓ I couldn't find enough information to answer that."
         );
 
-        saveMissedAnswer({
-          urls: answer.urls,
-          question: userMessage,
-          messageId: message.id,
-          questionUserId: message.author.id,
-          questionUsername: message.author.username,
-          guildId: message.guildId,
-          channelId: message.channelId,
+        await savedDiscordMessage.updateOne({
+          replied: false,
         });
       }
     }
@@ -264,80 +233,9 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
-client.login(DISCORD_TOKEN);
-
-async function retrieveAndCacheOldMessages() {
-  if (process.env.DISCORD_GUILD_ID === undefined) {
-    logError("DISCORD_GUILD_ID is not set in the environment variables.");
-    return;
-  }
-
-  const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-
-  if (!guild) {
-    logError("Guild not found. Please check the guild ID.");
-    return;
-  }
-
-  const channels = guild.channels.cache.filter((c) => c.isTextBased());
-
-  for (const channel of channels.values()) {
-    let lastMessageId;
-    let fetchComplete = false;
-
-    while (!fetchComplete) {
-      const options: FetchMessagesOptions = { limit: 100 };
-      if (lastMessageId) options.before = lastMessageId;
-
-      const messages = await channel.messages.fetch(options);
-
-      if (!messages || messages.size === 0) {
-        logInfo(`No more messages to fetch in channel ${channel.name}`);
-        break;
-      }
-
-      for (const message of messages.values()) {
-        // Process each message here
-        // For example, save to database
-
-        const member = await message.guild?.members.fetch(message.author.id);
-        const isModerator = isMemberModerator(member);
-        let trustScore = isModerator ? 2.0 : 1.0;
-
-        await saveDiscordMessage({
-          guildId: message.guildId,
-          content: message.content.trim(),
-          authorId: message.author.id,
-          authorUsername: message.author.username,
-          isModerator,
-          timestamp: new Date(message.createdTimestamp),
-          channelId: message.channelId,
-          messageId: message.id,
-          trustScore,
-        });
-      }
-
-      if (messages && messages.last()) {
-        lastMessageId = messages.last()?.id;
-
-        // Check if the last message is older than 6 months
-        const sixMonthsAgo = Date.now() - 6 * 30 * 24 * 60 * 60 * 1000;
-        let lastMessageDate;
-
-        const lastMessage = messages.last();
-        if (lastMessage) {
-          lastMessageDate = lastMessage.createdTimestamp;
-        }
-
-        if (lastMessageDate && lastMessageDate < sixMonthsAgo) {
-          {
-            fetchComplete = true;
-          }
-        }
-      }
-
-      // To comply with rate limits
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-  }
+async function init() {
+  await initMongoose();
+  client.login(DISCORD_TOKEN);
 }
+
+init();

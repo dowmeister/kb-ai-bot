@@ -3,8 +3,8 @@ import { logError, logInfo, logSuccess, logWarning } from "../helpers/logger";
 import { MediaWikiContentExtractor } from "../contentProviders/mediawiki-content-extractor";
 import { WordPressContentExtractor } from "../contentProviders/wordpress-content-extractor";
 import { StandardContentExtractor } from "../contentProviders/standard-content-extractor";
-import { saveOrUpdatePage } from "../mongo";
 import { EchoKnowledgeBaseExtractor } from "../contentProviders/echo-kb-content-extractor";
+import KnowledgeDocument from "../database/models/knowledgeDocument";
 
 /**
  * The `PluggableSiteScraper` class provides a flexible and extensible web scraping service
@@ -95,7 +95,7 @@ export class PluggableSiteScraper {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private page: Page | null = null;
-  private results: ScrapedPage[] = [];
+  private results: WebScraperResults = { pages: [] };
   private ignoreList: string[] = [];
   private extractors: ContentExtractor[] = [];
 
@@ -222,7 +222,7 @@ export class PluggableSiteScraper {
    * @throws An error if the scraping process encounters issues, such as navigation timeouts
    *         or content extraction failures.
    */
-  public async scrape(startUrl: string): Promise<ScrapedPage[]> {
+  public async scrape(startUrl: string): Promise<WebScraperResults> {
     if (!this.browser || !this.page) {
       await this.initialize();
     }
@@ -239,7 +239,7 @@ export class PluggableSiteScraper {
 
     logInfo(`Starting scraping from: ${startUrl}`);
 
-    while (pendingUrls.length > 0 && this.results.length < maxPages) {
+    while (pendingUrls.length > 0 && this.results.pages.length < maxPages) {
       const currentUrl = pendingUrls.shift()!;
       const parsedUrl = new URL(currentUrl);
 
@@ -300,18 +300,42 @@ export class PluggableSiteScraper {
         );
 
         if (content.content.length > 20) {
-          const scrapedPage: ScrapedPage = {
+          const scrapedPage: IKnowledgeDocument = {
             url: cleanUrlString,
             content: content.content,
             title: content.title,
-            siteType,
-            content_length: content.content.length,
+            pageType: siteType,
+            contentLength: content.content.length,
+            key: cleanUrlString,
+            source: "web-scraper",
           };
 
-          const shouldUpdate = await saveOrUpdatePage(scrapedPage);
-          scrapedPage.shouldUpdate = shouldUpdate;
+          let shouldUpdate = true;
 
-          this.results.push(scrapedPage);
+          const existingDocument = await KnowledgeDocument.findOne({
+            url: scrapedPage.url,
+          });
+
+          if (existingDocument) {
+            if (existingDocument.content == scrapedPage.content) {
+              shouldUpdate = true;
+            }
+          }
+
+          await KnowledgeDocument.findOneAndUpdate(
+            { url: scrapedPage.url },
+            { $set: scrapedPage },
+            {
+              upsert: true,
+              new: true,
+            }
+          );
+
+          this.results.pages.push({
+            document: scrapedPage,
+            shouldUpdate,
+          });
+
           logSuccess(`Saved/Updated content for: ${cleanUrlString}`);
         } else {
           logWarning(`No meaningful content found at: ${cleanUrlString}`);
@@ -385,7 +409,9 @@ export class PluggableSiteScraper {
    *
    * @throws Will log an error message if the scraping process fails.
    */
-  public async scrapeSingleUrl(url: string): Promise<ScrapedPage | null> {
+  public async scrapeSingleUrl(url: string): Promise<WebScraperResults | null> {
+    const result: WebScraperResults = { pages: [] };
+
     if (!this.browser || !this.page) {
       await this.initialize();
     }
@@ -418,21 +444,46 @@ export class PluggableSiteScraper {
       }
 
       if (content.content.length > 20) {
-        const scrapedPage: ScrapedPage = {
+        const scrapedPage: IKnowledgeDocument = {
           url: url,
           content: content.content,
           title: content.title,
-          siteType,
-          content_length: content.content.length,
+          pageType: siteType,
+          contentLength: content.content.length,
+          key: url,
+          source: "web-scraper",
         };
 
-        const shouldUpdate = await saveOrUpdatePage(scrapedPage);
-        scrapedPage.shouldUpdate = shouldUpdate;
+        let shouldUpdate = true;
+
+        const existingDocument = await KnowledgeDocument.findOne({
+          url: scrapedPage.url,
+        });
+
+        if (existingDocument) {
+          if (existingDocument.content == scrapedPage.content) {
+            shouldUpdate = true;
+          }
+        }
+
+        await KnowledgeDocument.findOneAndUpdate(
+          { url: scrapedPage.url },
+          { $set: scrapedPage },
+          {
+            upsert: true,
+            new: true,
+          }
+        );
+
+        result.pages.push({
+          document: scrapedPage,
+          shouldUpdate,
+        });
 
         logSuccess(
           `Extracted content from single URL: ${url} (${siteType}): ${content.content.length} characters`
         );
-        return scrapedPage;
+        return result;
       } else {
         logWarning(`No meaningful content found at: ${url}`);
         return null;
@@ -453,7 +504,7 @@ export class PluggableSiteScraper {
  * @returns A promise that resolves to an array of `ScrapedPage` objects containing the scraped data.
  * @throws Any errors encountered during the scraping process.
  */
-export async function scrapeSite(startUrl: string): Promise<ScrapedPage[]> {
+export async function scrapeSite(startUrl: string): Promise<WebScraperResults> {
   const scraper = new PluggableSiteScraper();
   try {
     return await scraper.scrape(startUrl);

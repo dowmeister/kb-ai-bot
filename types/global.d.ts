@@ -20,17 +20,14 @@ interface MissedAnswer {
   channelId: string;
 }
 
-interface DiscordMessage {
+interface IDiscordMessage {
   guildId: string | null;
   content: string;
   authorId: string;
   authorUsername: string;
-  isModerator: boolean;
-  timestamp: Date;
   channelId: string;
+  channelName: string;
   messageId: string;
-  parentMessageId?: string;
-  trustScore?: number;
   verified?: boolean;
   verifiedAnswer?: string;
 }
@@ -79,14 +76,14 @@ interface AIAnswer {
 }
 
 type QdrantEmbeddingPayload = Record<string, any> & {
-  url: string;
+  url?: string;
   text: string;
   title?: string;
-  key?: string;
+  documentKey: string;
   source?: QdrantEmbeddingPayloadSource;
-  is_summary?: boolean;
-  chunk_index?: number;
-  guild_id?: string | null;
+  isSummary?: boolean;
+  chunkIndex?: number;
+  guildId?: string | null;
 };
 
 type QdrantEmbeddingPayloadSource = "discord" | "web-scraper";
@@ -153,4 +150,35 @@ interface SitemapScraperOptions {
   priorityThreshold?: number;
   concurrency?: number;
   scraperOptions?: SiteScraperOptions;
+}
+
+interface IKnowledgeDocument {
+  title?: string;
+  content: string;
+  key: string;
+  url?: string;
+  isSummary?: boolean;
+  source: "web-scraper" | "discord" | "manual" | "pdf-document";
+  guildId?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+  projectId?: string;
+  contentLength: number;
+  pageType?: string;
+  summary?: string;
+}
+
+type WebScraperResults = {
+  pages: Array<{
+    document: IKnowledgeDocument;
+    shouldUpdate: boolean;
+  }>
+}
+
+interface IProject extends Document {
+  name: string;
+  description: string;
+  guildId?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

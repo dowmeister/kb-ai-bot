@@ -1,7 +1,10 @@
 import { configDotenv } from "dotenv";
-import { connectMongo, getMongoClient } from "./mongo";
+import { initMongoose } from "./mongo";
 import { logInfo, logSuccess, logWarning, logError } from "./helpers/logger";
 import { QdrantService } from "./services/qdrant-service";
+import { init } from "openai/_shims";
+import KnowledgeDocument from "./database/models/knowledgeDocument";
+import mongoose from "mongoose";
 
 configDotenv();
 
@@ -21,14 +24,14 @@ configDotenv();
 async function refreshDatabase() {
   logInfo("Starting database refresh...");
 
-  const db = await connectMongo();
+  await initMongoose();
   const qdrant = new QdrantService();
 
   try {
     // Drop the MongoDB collection
-    await db.collection("pages").deleteMany({});
+    await KnowledgeDocument.deleteMany();
 
-    logSuccess("MongoDB pages collection cleared.");
+    logSuccess("MongoDB KnowledgeDocuments collection cleared.");
 
     // Drop the Qdrant collection
     try {
@@ -45,8 +48,7 @@ async function refreshDatabase() {
       `Fatal error during database refresh: ${(error as Error).message}`
     );
   } finally {
-    // Close the MongoDB connection
-    await getMongoClient().close();
+    await mongoose.connection.close();
   }
 }
 

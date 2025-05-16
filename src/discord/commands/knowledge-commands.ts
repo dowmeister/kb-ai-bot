@@ -10,6 +10,7 @@ import { embeddingService } from "../../services/embedding-service";
 import { askQuestion } from "../../ai/ask";
 import { buildReply } from "../../helpers/utils";
 import { qdrantService } from "../../services/qdrant-service";
+import KnowledgeDocument from "../../database/models/knowledgeDocument";
 
 export const knowledgeCommands = [
   {
@@ -38,15 +39,25 @@ export const knowledgeCommands = [
       const title = interaction.options.getString("title", true);
       const answer = interaction.options.getString("answer", true);
 
+      const document: IKnowledgeDocument = {
+        title: title,
+        content: answer,
+        key: `kb-discord-${interaction.id}`,
+        source: "discord",
+        guildId: interaction.guildId,
+        contentLength: answer.length,
+      };
+
+      await KnowledgeDocument.create(document);
+
       const embedding = await embeddingService.generateEmbedding(answer);
 
       await qdrantService.upsert(embedding, {
         title: title,
         text: answer,
-        url: `kb-add-${interaction.id}`,
-        key: `kb-add-${interaction.id}`,
+        documentKey: `kb-discord-${interaction.id}`,
         source: "discord",
-        guild_id: interaction.guildId,
+        guildId: interaction.guildId,
       });
 
       try {
@@ -80,7 +91,9 @@ export const knowledgeCommands = [
 
       const id = interaction.options.getString("id", true);
 
-      await qdrantService.deleteVectorsById(id);
+      await KnowledgeDocument.deleteOne({ key: id, guildId: interaction.guildId });
+
+      await qdrantService.deleteVectorsByUrl(id);
 
       try {
         await interaction.editReply({
@@ -104,18 +117,21 @@ export const knowledgeCommands = [
 
       await interaction.deferReply();
 
-      const vectors = await qdrantService.getAllVectorsBySource("discord", interaction.guildId);
+      const documents = await KnowledgeDocument.find({
+        source: "discord",
+        guildId: interaction.guildId,
+      });
 
-      if (!vectors || vectors.length === 0) {
+      if (!documents || documents.length === 0) {
         await interaction.editReply({
           content: "❌ No entries found in the knowledge base.",
         });
         return;
       }
 
-      const replyContent = vectors
+      const replyContent = documents
         .map(
-          (vector) => `**ID:** ${vector.id}\n**Text:** ${vector.payload.title}`
+          (document) => `**ID:** ${document._id}\n**Text:** ${document.title}`
         )
         .join("\n\n");
 
