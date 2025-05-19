@@ -49,8 +49,16 @@ const KnowledgeDocumentSchema = new Schema({
     type: Date,
     default: Date.now,
   },
+  contentLength: {
+    type: Number,
+    required: true,
+  },
+  summary: {
+    type: String,
+    default: null,
+  }
+}, { timestamps: true });
 
-});
 
 const KnowledgeDocument = mongoose.model<IKnowledgeDocument>(
   "KnowledgeDocument",

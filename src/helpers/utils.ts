@@ -1,6 +1,6 @@
 import { Embed, EmbedBuilder } from "discord.js";
 import { encode, decode } from "gpt-tokenizer";
-
+import { DEFAULT_PROMPT } from "./constants";
 
 /**
  * Splits a given text into smaller chunks, ensuring each chunk does not exceed
@@ -72,7 +72,7 @@ export function splitTextIntoChunks(
 /**
  * Determines if a given text is a simple help request based on its structure.
  *
- * This function checks if the input text ends with a question mark (`?`) or 
+ * This function checks if the input text ends with a question mark (`?`) or
  * starts with common question words such as "who", "what", "why", etc.
  *
  * @param text - The input string to evaluate.
@@ -110,4 +110,8 @@ export function buildReply(answer: AIAnswer): EmbedBuilder {
   });
 
   return embed;
+}
+
+export function buildPrompt(context: string): string {
+  return DEFAULT_PROMPT.replace("{context}", context);
 }

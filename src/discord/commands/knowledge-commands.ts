@@ -15,7 +15,7 @@ import KnowledgeDocument from "../../database/models/knowledgeDocument";
 export const knowledgeCommands = [
   {
     data: new SlashCommandBuilder()
-      .setName("kb-add")
+      .setName("kf-add")
       .setDescription("Add to knowledge base")
       .addStringOption((option) =>
         option
@@ -74,7 +74,7 @@ export const knowledgeCommands = [
   },
   {
     data: new SlashCommandBuilder()
-      .setName("kb-delete")
+      .setName("kf-delete")
       .setDescription("Delete from knowledge base")
       .addStringOption((option) =>
         option
@@ -109,7 +109,7 @@ export const knowledgeCommands = [
   },
   {
     data: new SlashCommandBuilder()
-      .setName("kb-list")
+      .setName("kf-list")
       .setDescription("List all entries in the knowledge base")
       .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages),
     execute: async (interaction: ChatInputCommandInteraction) => {

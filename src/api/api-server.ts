@@ -3,6 +3,8 @@ import express, { Application } from "express";
 import { initMongoose } from "../mongo";
 import knowledgeDocumentRouter from "./routes/knowledgeDocumentRoutes";
 import projectRouter from "./routes/projectRoutes";
+import chatRouter from "./routes/chatRoutes";
+import embeddingsRouter from "./routes/embeddingsRoutes";
 import { logSuccess } from "../helpers/logger";
 
 const app: Application = express();
@@ -13,6 +15,8 @@ app.use(express.json());
 // Register routers
 app.use("/api/knowledge", knowledgeDocumentRouter);
 app.use("/api/projects", projectRouter);
+app.use("/api/chat", chatRouter);
+app.use("/api/embeddings", embeddingsRouter);
 
 initMongoose().then(() => {
   app.listen(port, () => {

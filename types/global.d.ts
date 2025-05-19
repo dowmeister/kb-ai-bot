@@ -166,14 +166,15 @@ interface IKnowledgeDocument {
   contentLength: number;
   pageType?: string;
   summary?: string;
+  knowledgeSource?: IKnowledgeSource | string;
 }
 
 type WebScraperResults = {
   pages: Array<{
     document: IKnowledgeDocument;
     shouldUpdate: boolean;
-  }>
-}
+  }>;
+};
 
 interface IProject extends Document {
   name: string;
@@ -181,4 +182,13 @@ interface IProject extends Document {
   guildId?: string;
   createdAt: Date;
   updatedAt: Date;
+  knowledgeSources: Array<IKnowledgeSource>;
+}
+
+interface IKnowledgeSource {
+  type: "web";
+  url: string;
+  project: IProject | string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }

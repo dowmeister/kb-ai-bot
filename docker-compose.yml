@@ -27,6 +27,7 @@ services:
   ollama:
     image: ollama/ollama
     container_name: ollama
+    profiles: [ollama]
     ports:
       - "11434:11434"
     volumes:
@@ -46,6 +47,7 @@ services:
       context: .
       dockerfile: ./docker/discord-bot-Dockerfile
     container_name: discord-bot
+    profiles: [discord-bot]
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - MONGO_URI=mongodb://mongodb:27017
@@ -56,17 +58,21 @@ services:
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
       - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID}
-      - QDRANT_COLLECTION=${QDRANT_COLLECTION}
       - DEFAULT_AI_PROVIDER=${DEFAULT_AI_PROVIDER}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}      
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
     depends_on:
       - mongodb
       - qdrant
       - embedding-server
-      - ollama
+      - redis
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
 
 volumes:
   mongo_data:

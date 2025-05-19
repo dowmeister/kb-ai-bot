@@ -2,12 +2,16 @@ import Anthropic from "@anthropic-ai/sdk";
 import { AIProvider } from "./baseAIProvider";
 import { DEFAULT_PROMPT } from "../../helpers/constants";
 import { embeddingService } from "../../services/embedding-service";
+import { ChatAnthropic } from "@langchain/anthropic";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { buildPrompt } from "../../helpers/utils";
 
 export class ClaudeProvider implements AIProvider {
-  protected client: Anthropic;
+  protected client: ChatAnthropic;
 
   constructor() {
-    this.client = new Anthropic({
+    this.client = new ChatAnthropic({
+      model: process.env.CLAUDE_MODEL || "claude-3-5-sonnet-20240620",
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
   }
@@ -17,6 +21,7 @@ export class ClaudeProvider implements AIProvider {
   }
 
   async completePrompt(question: string, context: string): Promise<string> {
+    /*
     const systemPrompt = `
     ${DEFAULT_PROMPT}
     `.trim();
@@ -39,9 +44,20 @@ export class ClaudeProvider implements AIProvider {
       console.error("Error completing prompt with Claude:", error);
       throw new Error(`Failed to complete prompt: ${(error as Error).message}`);
     }
+      */
+
+    const messages = [
+      new SystemMessage(buildPrompt(context)),
+      new HumanMessage(question),
+    ];
+
+    const result = await this.client.invoke(messages);
+
+    return result.content.toString() || "";
   }
 
   public async summarize(text: string): Promise<string> {
+    /*
     if (!text || text.trim().length === 0) {
       return "";
     }
@@ -71,5 +87,7 @@ export class ClaudeProvider implements AIProvider {
       // Return a truncated version as fallback
       return text.substring(0, 300) + "...";
     }
+      */
+     return "";
   }
 }

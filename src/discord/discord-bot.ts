@@ -19,6 +19,8 @@ import { buildReply, isHelpRequestSimple } from "../helpers/utils";
 import { embeddingService } from "../services/embedding-service";
 import { knowledgeCommands } from "./commands/knowledge-commands";
 import DiscordMessage from "../database/models/discordMessage";
+import { projectCommands } from "./commands/project-commands";
+import { registerCommands } from "./commands-management";
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
@@ -32,48 +34,13 @@ const client = new Client({
 });
 
 // Commands collection
-const commands = new Collection();
+const commands = new Collection<string, any>();
 knowledgeCommands.forEach((command: any) => {
   commands.set(command.data.name, command);
 });
-
-// Construct and prepare an instance of the REST module
-const rest = new REST().setToken(process.env.DISCORD_TOKEN);
-
-// and deploy your commands!
-(async () => {
-  try {
-    logInfo(`Started refreshing ${commands.size} application (/) commands.`);
-
-    if (process.env.DISCORD_GUILD_ID) {
-      // The put method is used to deploy commands to a specific guild
-      const data: any = await rest.put(
-        Routes.applicationGuildCommands(
-          process.env.DISCORD_CLIENT_ID,
-          process.env.DISCORD_GUILD_ID
-        ),
-        { body: commands.map((m: any) => m.data.toJSON()) }
-      );
-
-      logSuccess(
-        `Successfully reloaded ${data.length} application (/) commands in the guild.`
-      );
-    } else {
-      // The put method is used to fully refresh all commands in the guild with the current set
-      const data: any = await rest.put(
-        Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
-        { body: commands.map((m: any) => m.data.toJSON()) }
-      );
-
-      logSuccess(
-        `Successfully reloaded ${data.length} application (/) commands.`
-      );
-    }
-  } catch (error) {
-    // And of course, make sure you catch and log any errors!
-    console.error(error);
-  }
-})();
+projectCommands.forEach((command: any) => {
+  commands.set(command.data.name, command);
+});
 
 function isMemberModerator(member: any): boolean {
   if (!member.permissions) return false;
@@ -235,6 +202,7 @@ client.on(Events.MessageCreate, async (message) => {
 
 async function init() {
   await initMongoose();
+  await registerCommands(commands);
   client.login(DISCORD_TOKEN);
 }
 
