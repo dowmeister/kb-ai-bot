@@ -36,7 +36,7 @@ const KnowledgeDocumentSchema = new Schema({
   project: {
     type: Schema.Types.ObjectId,
     ref: "Project",
-    required: false,
+    required: true,
   },
   pageType: {
     type: String,

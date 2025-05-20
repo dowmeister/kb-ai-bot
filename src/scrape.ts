@@ -6,7 +6,8 @@ import { Command } from "commander";
 import { embeddingService } from "./services/embedding-service";
 import { qdrantService } from "./services/qdrant-service";
 import KnowledgeDocument from "./database/models/knowledgeDocument";
-import mongoose, { connect } from "mongoose";
+import Project from "./database/models/project";
+import { knowledgeService } from "./services/knowledge-service";
 
 const program = new Command();
 
@@ -16,58 +17,33 @@ program
     "Skip scraping and use existing pages from MongoDB",
     false
   )
-  .option("--force-embedding-update", "Force update of embeddings", false)
-  .parse(process.argv);
+  .option("--start-url <url>", "URL to start scraping from")
+  .option(
+    "--project <project>",
+    "Project ID to scrape. If not provided, will scrape all projects."
+  )
+  .option("--force-embedding-update", "Force update of embeddings", false);
+
+program.parse();
 
 const options = program.opts();
 
 async function main() {
-
   await initMongoose();
 
-  const startUrl: string | undefined = process.env.START_URL;
-  const skipScrape: boolean = options.skipScrape;
-
-  if (!startUrl) {
-    throw new Error("Missing START_URL in .env file");
+  if (!options.project) {
+    throw new Error("No project ID provided");
   }
 
-  let scrapingResult: WebScraperResults = {
-    pages: [],
-  };
+  const project = await Project.findById(options.project).populate('knowledgeSources');
 
-  if (skipScrape) {
-    logInfo("Skipping scraping phase. Loading pages from MongoDB...");
-    scrapingResult.pages = await KnowledgeDocument.find({});
-  } else {
-    logInfo(`Starting scraping from ${startUrl}...`);
-    scrapingResult = await scrapeSite(startUrl);
+  if (!project) {
+    throw new Error("Project not found");
   }
 
-  logSuccess(`Indexed ${scrapingResult.pages.length} pages.`);
+  const startUrl: string | undefined = options.start_url;
 
-  await qdrantService.initializeCollection();
-
-  const pagesToUpdate = scrapingResult.pages.filter(
-    (page) => page.shouldUpdate
-  );
-
-  if (pagesToUpdate.length === 0) {
-    logInfo("No pages to update. Exiting...");
-    return;
-  }
-
-  const pagesToEmbed: IKnowledgeDocument[] = [];
-
-  scrapingResult.pages.forEach((page) => {
-    if (page.shouldUpdate) {
-      pagesToEmbed.push(page.document);
-    }
-  });
-
-  await embeddingService.generateEmbeddingsFromPages(pagesToEmbed);
-
-  logSuccess("Done!");
+  await knowledgeService.scrapeSiteAndEmbed(project, startUrl);
 }
 
 main()

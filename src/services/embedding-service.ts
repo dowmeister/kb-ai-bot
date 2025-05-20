@@ -156,6 +156,7 @@ export class TextEmbeddingsInferenceService {
             documentKey: page.key,
             isSummary: true,
             source: "web-scraper",
+            projectId: page.project,
           });
         }
 
@@ -171,6 +172,7 @@ export class TextEmbeddingsInferenceService {
             documentKey: page.key,
             isSummary: false,
             source: "web-scraper",
+            projectId: page.project,
           });
 
           embeddingsCount++;

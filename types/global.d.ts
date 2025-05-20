@@ -167,6 +167,7 @@ interface IKnowledgeDocument {
   pageType?: string;
   summary?: string;
   knowledgeSource?: IKnowledgeSource | string;
+  project?: IProject | string;
 }
 
 type WebScraperResults = {
@@ -177,6 +178,7 @@ type WebScraperResults = {
 };
 
 interface IProject extends Document {
+  _id: string;
   name: string;
   description: string;
   guildId?: string;

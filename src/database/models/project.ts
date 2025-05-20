@@ -1,4 +1,7 @@
 import mongoose, { Document, Schema } from "mongoose";
+import KnowledgeSource from "./knowledgeSource";
+
+new KnowledgeSource();
 
 const ProjectSchema = new Schema(
   {

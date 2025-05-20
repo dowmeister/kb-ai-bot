@@ -1,40 +1,52 @@
 import { Job, Queue, Worker } from "bullmq";
 import { scrapeSite } from "./services/scraper-service";
 import { webScrapingJob } from "./jobs/web-scraping-job";
+import IORedis from "ioredis";
 
 export class QueueManager {
   webScrapingQueue: Queue;
   webScrapingWorker: Worker;
 
   public constructor() {
-    this.webScrapingQueue = new Queue("web-scraping");
-    this.webScrapingWorker = new Worker("web-scraping", webScrapingJob);
+    const connection = new IORedis({ maxRetriesPerRequest: null });
+    this.webScrapingQueue = new Queue("web-scraping", {
+      connection: connection,
+    });
+    this.webScrapingWorker = new Worker("web-scraping", webScrapingJob, {
+      connection: connection,
+    });
   }
 
-  public async startScrapingProject(project: IProject) {
+  getWebScrapingQueue() {
+    return this.webScrapingQueue;
+  }
+
+  public startScrapingProject(project: IProject) {
     if (!project) {
       throw new Error("Invalid project data");
     }
 
-    project.knowledgeSources.forEach(async (knowledgeSource) => {
+    project.knowledgeSources.forEach((knowledgeSource) => {
       if (knowledgeSource.type === "web") {
         const url = knowledgeSource.url;
         if (url) {
           this.webScrapingQueue.add("web-scraping", {
             url: url,
+            project: project,
           });
         }
       }
     });
   }
 
-  public async startScrapingUrl(url: string) {
+  public async startScrapingUrl(project: IProject, url: string) {
     if (!url) {
       throw new Error("Invalid URL");
     }
 
     this.webScrapingQueue.add("web-scraping", {
       url: url,
+      project: project,
     });
   }
 }
