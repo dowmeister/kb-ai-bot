@@ -194,3 +194,9 @@ interface IKnowledgeSource {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+interface ApiResponse<T> {
+  data: T;
+  message: string;
+  success: boolean;
+}
