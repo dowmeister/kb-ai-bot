@@ -11,9 +11,7 @@
     "discord-bot": "ts-node src/discord/discord-bot.ts",
     "cli": "ts-node src/cli.ts",
     "test-scraper": "ts-node src/tests/test-scraper.ts",
-    "api-server": "nodemon --watch src/**/*.ts --exec ts-node src/api/api-server.ts",
-    "web-start": "react-scripts start",
-    "web-build": "react-scripts build"
+    "api-server": "nodemon --watch src/**/*.ts --exec ts-node src/api/api-server.ts"
   },
   "author": "",
   "license": "ISC",
@@ -47,25 +45,15 @@
     "gpt-3-encoder": "^1.1.4",
     "gpt-tokenizer": "^2.9.0",
     "ioredis": "^5.6.1",
-    "lucide-react": "^0.511.0",
     "mongodb": "^6.16.0",
     "mongoose": "^8.14.3",
     "nodemon": "^3.1.10",
     "openai": "^4.96.0",
-    "playwright": "^1.52.0",
-    "postcss": "^8.5.3",
-    "postcss-import": "^16.1.0",
-    "postcss-loader": "^8.1.1",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-router": "^7.6.0",
-    "tailwindcss": "^4.1.7",
+    "playwright": "^1.52.0",   
     "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.1",
-    "@types/react": "^19.1.4",
-    "@types/react-dom": "^19.1.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },

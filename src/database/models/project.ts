@@ -25,6 +25,14 @@ const ProjectSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+    aiService: {
+      type: String,
+      required: true,
+      default: "gemini",
+    },
+    aiModel: {
+      type: String,
+    },
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

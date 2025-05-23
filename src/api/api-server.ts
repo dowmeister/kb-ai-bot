@@ -10,11 +10,13 @@ import { queueManager } from "../queue";
 import { ExpressAdapter } from "@bull-board/express";
 import { createBullBoard } from "@bull-board/api";
 const { BullMQAdapter } = require("@bull-board/api/bullMQAdapter");
+var cors = require("cors");
 
 const app: Application = express();
 const port = process.env.API_SERVER_PORT || 3001;
 
 app.use(express.json());
+app.use(cors());
 
 // Register routers
 app.use("/api/knowledge", knowledgeDocumentRouter);
@@ -27,7 +29,7 @@ const queue = queueManager.getWebScrapingQueue();
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath("/admin/queues");
 
-const { addQueue, removeQueue, setQueues, replaceQueues } = createBullBoard({
+createBullBoard({
   queues: [new BullMQAdapter(queue)],
   serverAdapter: serverAdapter,
 });

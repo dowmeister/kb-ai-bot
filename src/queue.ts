@@ -12,6 +12,7 @@ export class QueueManager {
     this.webScrapingQueue = new Queue("web-scraping", {
       connection: connection,
     });
+
     this.webScrapingWorker = new Worker("web-scraping", webScrapingJob, {
       connection: connection,
     });
@@ -19,6 +20,18 @@ export class QueueManager {
 
   getWebScrapingQueue() {
     return this.webScrapingQueue;
+  }
+
+  public startScrapingSource(source: IKnowledgeSource) {
+    if (!source) {
+      throw new Error("Invalid source data");
+    }
+
+    this.webScrapingQueue.add("web-scraping", {
+      url: source.url,
+      project: source.project,
+      source: source,
+    });
   }
 
   public startScrapingProject(project: IProject) {
@@ -33,6 +46,7 @@ export class QueueManager {
           this.webScrapingQueue.add("web-scraping", {
             url: url,
             project: project,
+            source: knowledgeSource
           });
         }
       }

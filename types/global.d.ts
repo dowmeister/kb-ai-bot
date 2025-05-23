@@ -177,7 +177,7 @@ type WebScraperResults = {
   }>;
 };
 
-interface IProject extends Document {
+interface IProject {
   _id: string;
   name: string;
   description: string;
@@ -185,18 +185,15 @@ interface IProject extends Document {
   createdAt: Date;
   updatedAt: Date;
   knowledgeSources: Array<IKnowledgeSource>;
+  aiService: string;
+  aiModel: string;
 }
 
 interface IKnowledgeSource {
-  type: "web";
+  _id: string;
+  type: "web" | string;
   url: string;
   project: IProject | string;
   createdAt?: Date;
   updatedAt?: Date;
-}
-
-interface ApiResponse<T> {
-  data: T;
-  message: string;
-  success: boolean;
 }

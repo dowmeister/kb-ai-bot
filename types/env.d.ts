@@ -52,6 +52,8 @@ declare namespace NodeJS {
         OLLAMA_API_URL?: string;
         GEMINI_API_KEY?: string;
         GEMINI_MODEL?: string;
+        REACT_APP_API_SERVER_HOST?: string;
+        REACT_APP_API_SERVER_PORT: string;
         API_SERVER_PORT?: string;
     }
   }

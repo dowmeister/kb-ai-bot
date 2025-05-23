@@ -1,12 +1,10 @@
-import { configDotenv } from "dotenv";
+import "dotenv/config";
 import { initMongoose } from "./mongo";
 import { logInfo, logSuccess, logWarning, logError } from "./helpers/logger";
 import { QdrantService } from "./services/qdrant-service";
 import { init } from "openai/_shims";
 import KnowledgeDocument from "./database/models/knowledgeDocument";
 import mongoose from "mongoose";
-
-configDotenv();
 
 /**
  * Refreshes the database by performing the following actions:
