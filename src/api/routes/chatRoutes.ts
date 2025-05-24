@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { askQuestion } from "../../ai/ask";
+import ApiResponse from "../../helpers/api-response";
 
 const router = Router();
 
@@ -14,9 +15,9 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
 
     const answer = await askQuestion(question);
 
-    res.json({ answer });
+    res.json(new ApiResponse(answer, true, "Question answered successfully"));
   } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
+    res.status(500).json(new ApiResponse(null, false, (err as Error).message));
   }
 });
 

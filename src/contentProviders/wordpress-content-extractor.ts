@@ -6,6 +6,18 @@ import { BaseContentExtractor } from "./base-content-extractor";
  */
 export class WordPressContentExtractor extends BaseContentExtractor {
   name = "wordpress";
+  ignoreList = [
+    "?lang=",
+    "?seq=",
+    "?p=",
+    "?page_id=",
+    "?post_type=",
+    "?attachment_id=",
+    "?preview=true",
+    "?preview_id=",
+    "?preview_nonce=",
+    "/wp-admin",
+  ];
 
   async detect(page: Page): Promise<boolean> {
     return await page.evaluate(() => {

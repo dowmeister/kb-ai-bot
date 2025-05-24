@@ -40,6 +40,7 @@ export class KnowledgeService {
       knowledgeDocument.title = scrapedPage.title;
       knowledgeDocument.contentLength = scrapedPage.content.length;
       knowledgeDocument.siteType = scrapedPage.siteType;
+      knowledgeDocument.keywords = scrapedPage.keywords || [];
 
       await knowledgeDocument.save();
 
@@ -53,6 +54,8 @@ export class KnowledgeService {
   }
 
   async scrapeSiteAndEmbed(project: IProject, source?: IKnowledgeSource) {
+    await qdrantService.initializeCollection();
+
     if (!source?.url) {
       logWarning("No URL found to scrape. Skipping...");
       return;
@@ -62,46 +65,50 @@ export class KnowledgeService {
 
     logInfo(`Starting scraping from ${source.url}...`);
 
-    pages = await scrapeSite(source.url, project as IProject);
-
-    logSuccess(`Indexed ${pages.length} pages.`);
-
-    await qdrantService.initializeCollection();
-
-    const pagesToEmbed: IKnowledgeDocument[] = [];
-
-    for (const page of pages) {
-      let existingPage = await KnowledgeDocument.findOne({
-        key: page.url,
-        project: project._id,
-        knowledgeSourceId: source._id,
-      });
-
-      if (existingPage) {
-        // update existing page content
-        await existingPage.save();
-      } else {
-        existingPage = await KnowledgeDocument.create({
-          title: page.title,
-          content: page.content,
+    pages = await scrapeSite(source.url, async (page: ScrapedPage) => {
+      try {
+        let existingPage = await KnowledgeDocument.findOne({
           key: page.url,
-          url: page.url,
-          isSummary: false,
-          type: "web-scraper",
-          projectId: project._id,
-          contentLength: page.content.length,
+          project: project._id,
           knowledgeSourceId: source._id,
-          siteType: page.siteType,
         });
 
-        await existingPage.save();
+        if (existingPage) {
+          // update existing page content
+          existingPage.title = page.title;
+          existingPage.content = page.content;
+          existingPage.contentLength = page.content.length;
+          existingPage.siteType = page.siteType;
+          existingPage.keywords = page.keywords || [];
+
+          await existingPage.save();
+        } else {
+          existingPage = await KnowledgeDocument.create({
+            title: page.title,
+            content: page.content,
+            key: page.url,
+            url: page.url,
+            isSummary: false,
+            type: "web-scraper",
+            projectId: project._id,
+            contentLength: page.content.length,
+            knowledgeSourceId: source._id,
+            siteType: page.siteType,
+            keywords: page.keywords || [],
+          });
+
+          await existingPage.save();
+        }
+
+        await embeddingService.generateEmbeddingsFromPages([existingPage]);
+      } catch (error) {
+        logWarning(
+          `Error processing page ${page.url}: ${(error as Error).message}`
+        );
       }
+    });
 
-      pagesToEmbed.push(existingPage);
-    }
-
-    await embeddingService.generateEmbeddingsFromPages(pagesToEmbed);
-
+    logSuccess(`Indexed ${pages.length} pages.`);
     logSuccess("Done!");
   }
 }

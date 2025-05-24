@@ -7,6 +7,8 @@ import { BaseContentExtractor } from "./base-content-extractor";
 export class EchoKnowledgeBaseExtractor extends BaseContentExtractor {
   name = "echo-kb";
 
+  ignoreList = ["?lang=", "?seq_no=", "/category"];
+
   async detect(page: Page): Promise<boolean> {
     return await page.evaluate(() => {
       // Check for Echo Knowledge Base specific elements

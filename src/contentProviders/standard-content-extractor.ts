@@ -6,6 +6,7 @@ import { BaseContentExtractor } from "./base-content-extractor";
  */
 export class StandardContentExtractor extends BaseContentExtractor {
   name = "standard";
+  ignoreList?: string[] | undefined;
 
   async detect(page: Page): Promise<boolean> {
     // This is the fallback extractor, so always return true

@@ -6,6 +6,21 @@ import { BaseContentExtractor } from "./base-content-extractor";
  */
 export class MediaWikiContentExtractor extends BaseContentExtractor {
   name = "mediawiki";
+  ignoreList = [
+    "?action=edit",
+    "?action=history",
+    "?action=raw",
+    "Special:",
+    "Talk:",
+    "User:",
+    "File:",
+    "Category:",
+    ":Community_portal",
+    "Template:",
+    "Help:",
+    "Portal:",
+    "Draft:",
+  ];
 
   async detect(page: Page): Promise<boolean> {
     return await page.evaluate(() => {
@@ -58,6 +73,10 @@ export class MediaWikiContentExtractor extends BaseContentExtractor {
         "#toc",
         ".mw-references-wrap",
         ".reference",
+        "#See_also",
+        ".navbox",
+        ".notice.metadata.spoiler",
+        ".notice",
       ];
 
       elementsToRemove.forEach((selector) => {

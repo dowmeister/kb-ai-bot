@@ -4,6 +4,7 @@ import { MediaWikiContentExtractor } from "../contentProviders/mediawiki-content
 import { WordPressContentExtractor } from "../contentProviders/wordpress-content-extractor";
 import { StandardContentExtractor } from "../contentProviders/standard-content-extractor";
 import { EchoKnowledgeBaseExtractor } from "../contentProviders/echo-kb-content-extractor";
+import HTMLKeywordExtractor from "../helpers/html-keywords-extractor";
 const TurndownService = require("turndown");
 /**
  * A flexible, extensible web scraper that supports pluggable content extractors for different site types.
@@ -50,6 +51,8 @@ export class PluggableSiteScraper {
   private results: ScrapedPage[] = [];
   private ignoreList: string[] = [];
   private extractors: ContentExtractor[] = [];
+  private readonly keywordsExtractor: HTMLKeywordExtractor =
+    new HTMLKeywordExtractor();
 
   constructor(private options: SiteScraperOptions = {}) {
     this.ignoreList =
@@ -108,8 +111,16 @@ export class PluggableSiteScraper {
     return url.pathname.startsWith(rootPath);
   }
 
-  private shouldIgnoreUrl(url: string): boolean {
-    return this.ignoreList.some((ignoreUrl) => url.includes(ignoreUrl));
+  private shouldIgnoreUrl(url: string, extractor: ContentExtractor): boolean {
+    let ignore = this.ignoreList.some((ignoreUrl) => url.includes(ignoreUrl));
+
+    if (!ignore && extractor.ignoreList) {
+      ignore = extractor.ignoreList.some((ignoreUrl) =>
+        url.includes(ignoreUrl)
+      );
+    }
+
+    return ignore;
   }
 
   /**
@@ -124,52 +135,46 @@ export class PluggableSiteScraper {
    */
   private async extractContent(
     page: Page,
-    siteType: string
+    extractor: ContentExtractor
   ): Promise<MarkdownPageContent | null> {
-    let extractor = this.extractors.find((e) => e.name === siteType);
+    try {
+      const isMatch = await extractor.detect(page);
+      if (isMatch) {
+        logInfo(`Using ${extractor.name} extractor for content extraction`);
 
-    if (!extractor) {
-      // Fallback to the first registered extractor if no specific one is found
-      extractor = this.extractors.find((e) => e.name === "standard");
-    }
+        const markdownPageContent: MarkdownPageContent = {
+          html: "",
+          title: "",
+          markdown: "",
+          keywords: [],
+        };
 
-    if (extractor) {
-      try {
-        const isMatch = await extractor.detect(page);
-        if (isMatch) {
-          logInfo(`Using ${extractor.name} extractor for content extraction`);
+        const pageContent = await extractor.extract(page);
 
-          const markdownPageContent: MarkdownPageContent = {
-            html: "",
-            title: "",
-            markdown: "",
-          };
+        markdownPageContent.html = pageContent.html || "";
+        markdownPageContent.title = pageContent.title || "";
 
-          const pageContent = await extractor.extract(page);
-
-          markdownPageContent.html = pageContent.html || "";
-          markdownPageContent.title = pageContent.title || "";
-
-          const turndownService = new TurndownService();
-          markdownPageContent.markdown = turndownService.turndown(
-            pageContent.html,
-            {
-              headingStyle: "atx",
-              bulletListMarker: "-",
-              codeBlockStyle: "fenced",
-              emDelimiter: "*",
-            }
-          );
-
-          return markdownPageContent;
-        }
-      } catch (error) {
-        logWarning(
-          `Error with ${extractor.name} extractor: ${(error as Error).message}`
+        const turndownService = new TurndownService();
+        markdownPageContent.markdown = turndownService.turndown(
+          pageContent.html,
+          {
+            headingStyle: "atx",
+            bulletListMarker: "-",
+            codeBlockStyle: "fenced",
+            emDelimiter: "*",
+          }
         );
+
+        markdownPageContent.keywords =
+          this.keywordsExtractor.extractKeywords(pageContent.html).keywords ||
+          [];
+
+        return markdownPageContent;
       }
-    } else {
-      logWarning(`No suitable extractor found for ${siteType}`);
+    } catch (error) {
+      logWarning(
+        `Error with ${extractor.name} extractor: ${(error as Error).message}`
+      );
     }
 
     return null;
@@ -186,7 +191,10 @@ export class PluggableSiteScraper {
    * @param project - The project associated with the scraped content.
    * @returns A promise that resolves to an object containing an array of scraped pages.
    */
-  public async scrape(startUrl: string): Promise<ScrapedPage[]> {
+  public async scrape(
+    startUrl: string,
+    singlePageCallback?: (page: ScrapedPage) => void
+  ): Promise<ScrapedPage[]> {
     if (!this.browser || !this.page) {
       await this.initialize();
     }
@@ -209,6 +217,12 @@ export class PluggableSiteScraper {
 
       // Remove any fragment
       parsedUrl.hash = "";
+
+      // remove trailing slash for consistency
+      if (parsedUrl.pathname.endsWith("/")) {
+        parsedUrl.pathname = parsedUrl.pathname.slice(0, -1);
+      }
+
       const cleanUrlString = parsedUrl.toString();
 
       if (this.visited.has(cleanUrlString)) {
@@ -217,20 +231,6 @@ export class PluggableSiteScraper {
 
       // Add to visited before processing to prevent re-adding
       this.visited.add(cleanUrlString);
-
-      if (!this.isSameDomain(parsedUrl, domainOnly)) {
-        logWarning(`Skipping different domain: ${parsedUrl.href}`);
-        continue;
-      }
-
-      if (!this.isInSameRoot(parsedUrl, rootPath)) {
-        continue;
-      }
-
-      if (this.shouldIgnoreUrl(cleanUrlString)) {
-        logWarning(`Ignoring URL in ignore list: ${cleanUrlString}`);
-        continue;
-      }
 
       try {
         logInfo(`Navigating to: ${cleanUrlString}`);
@@ -242,17 +242,10 @@ export class PluggableSiteScraper {
         // Wait for content to stabilize
         await this.page!.waitForTimeout(500);
 
-        let siteType = "unknown";
-
-        for (const extractor of this.extractors) {
-          if (await extractor.detect(this.page!)) {
-            siteType = extractor.name;
-            break;
-          }
-        }
+        const extractor = await this.detectExtractor(this.page!);
 
         // Extract content using the appropriate extractor
-        const content = await this.extractContent(this.page!, siteType);
+        const content = await this.extractContent(this.page!, extractor);
 
         if (!content) {
           logWarning(`No content extracted from: ${cleanUrlString}`);
@@ -260,7 +253,7 @@ export class PluggableSiteScraper {
         }
 
         logInfo(
-          `Extracted content from: ${cleanUrlString} (${siteType}): ${content.markdown.length} characters`
+          `Extracted content from: ${cleanUrlString} (${extractor.name}): ${content.markdown.length} characters`
         );
 
         if (content.markdown.length > 20) {
@@ -268,11 +261,16 @@ export class PluggableSiteScraper {
             url: cleanUrlString,
             content: content.markdown,
             title: content.title,
-            siteType: siteType,
+            siteType: extractor.name,
             html: content.html,
+            keywords: content.keywords,
           };
 
           this.results.push(scrapedPage);
+
+          if (singlePageCallback) {
+            singlePageCallback(scrapedPage);
+          }
 
           //logSuccess(`Saved/Updated content for: ${cleanUrlString}`);
         } else {
@@ -311,7 +309,7 @@ export class PluggableSiteScraper {
             continue;
           }
 
-          if (this.shouldIgnoreUrl(cleanLink)) {
+          if (this.shouldIgnoreUrl(cleanLink, extractor)) {
             logWarning(`Ignoring URL in ignore list: ${cleanLink}`);
             this.visited.add(cleanLink); // Mark as visited to avoid re-adding
             continue;
@@ -331,6 +329,16 @@ export class PluggableSiteScraper {
 
     logSuccess("Scraping completed.");
     return this.results;
+  }
+
+  async detectExtractor(page: Page): Promise<ContentExtractor> {
+    for (const extractor of this.extractors) {
+      if (await extractor.detect(page)) {
+        logInfo(`Detected extractor: ${extractor.name}`);
+        return extractor;
+      }
+    }
+    throw new Error("No suitable extractor found for the page");
   }
 
   /**
@@ -364,17 +372,10 @@ export class PluggableSiteScraper {
       // Wait for content to stabilize
       await this.page!.waitForTimeout(500);
 
-      let siteType = "unknown";
-
-      for (const extractor of this.extractors) {
-        if (await extractor.detect(this.page!)) {
-          siteType = extractor.name;
-          break;
-        }
-      }
+      const extractor = await this.detectExtractor(this.page!);
 
       // Extract content using the appropriate extractor
-      const content = await this.extractContent(this.page!, siteType);
+      const content = await this.extractContent(this.page!, extractor);
 
       if (!content) {
         logWarning(`No content extracted from: ${url}`);
@@ -386,12 +387,13 @@ export class PluggableSiteScraper {
           url: url,
           content: content.markdown,
           title: content.title,
-          siteType: siteType,
+          siteType: extractor.name,
           html: content.html,
+          keywords: content.keywords,
         };
 
         logSuccess(
-          `Extracted content from single URL: ${url} (${siteType}): ${content.markdown.length} characters`
+          `Extracted content from single URL: ${url} (${extractor.name}): ${content.markdown.length} characters`
         );
         return result;
       } else {
@@ -416,11 +418,11 @@ export class PluggableSiteScraper {
  */
 export async function scrapeSite(
   startUrl: string,
-  project: IProject
+  singlePageCallback?: (page: ScrapedPage) => void
 ): Promise<ScrapedPage[]> {
   const scraper = new PluggableSiteScraper();
   try {
-    return await scraper.scrape(startUrl);
+    return await scraper.scrape(startUrl, singlePageCallback);
   } finally {
     await scraper.close();
   }

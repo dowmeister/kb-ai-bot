@@ -61,6 +61,10 @@ const KnowledgeDocumentSchema = new Schema(
       type: String,
       required: false,
     },
+    keywords: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true }
 );

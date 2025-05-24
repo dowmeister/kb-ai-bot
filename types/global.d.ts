@@ -42,17 +42,21 @@ interface ScrapedPage {
   content_length?: number;
   siteType?: string;
   html: string;
+  keywords?: string[];
 }
 
 interface PageContent {
   html: string;
   title?: string;
+  description?: string;
+  keywords?: string[];
 }
 
 interface MarkdownPageContent {
   html: string;
   title?: string;
   markdown: string;
+  keywords: string[];
 }
 
 interface VectorEmbed {
@@ -104,6 +108,7 @@ interface ContentExtractor {
   name: SiteType;
   detect(page: Page): Promise<boolean>;
   extract(page: Page): Promise<PageContent>;
+  ignoreList?: string[];
 }
 
 /**
@@ -179,6 +184,7 @@ interface IKnowledgeDocument {
   project: IProject;
   knowledgeSource: IKnowledgeSource;
   siteType?: string;
+  keywords?: string[];
 }
 
 type WebScraperResults = {
@@ -207,4 +213,23 @@ interface IKnowledgeSource {
   project: IProject | string;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+interface KeywordResult {
+  keywords: string[];
+  keywordFrequency: Map<string, number>;
+  weightedKeywords: Array<{
+    keyword: string;
+    weight: number;
+    frequency: number;
+  }>;
+}
+
+interface ExtractionOptions {
+  minLength?: number;
+  maxKeywords?: number;
+  includeNumbers?: boolean;
+  customStopWords?: string[];
+  weightTitles?: boolean;
+  weightHeaders?: boolean;
 }
