@@ -65,6 +65,107 @@ export class TextEmbeddingsInferenceService {
       throw error;
     }
   }
+  /**
+   * Preprocesses the input text to remove unnecessary formatting and extract meaningful content.
+   *
+   * This method cleans up the text by removing markdown links, HTML tags, images, code blocks,
+   * and other formatting elements that do not contribute to the semantic meaning of the text.
+   *
+   * @param text - The input text to be preprocessed.
+   * @returns A cleaned-up version of the input text, ready for further processing or embedding.
+   */
+  preprocess(text: string): string {
+    return (
+      text
+        // Remove markdown links - extract only the link text
+        .replace(/\[([^\]]*)\]\([^)]+\)/g, "$1")
+
+        // Remove HTML links - extract only the inner text
+        .replace(/<a[^>]*>([^<]*)<\/a>/gi, "$1")
+
+        // Clean up any remaining anchor tags
+        .replace(/<\/?a[^>]*>/gi, "")
+
+        // Remove image references completely (they don't add semantic value)
+        .replace(/!\[([^\]]*)\]\([^)]+\)/g, "")
+        .replace(/<img[^>]*>/gi, "")
+
+        // Remove markdown horizontal rules and separators
+        .replace(/^\s*[-*_=]{3,}\s*$/gm, "")
+
+        // Convert setext-style heading underlines to the heading text only
+        .replace(/^(.+)\n[=]{2,}\s*$/gm, "$1")
+        .replace(/^(.+)\n[-]{2,}\s*$/gm, "$1")
+
+        // Remove bold and italic formatting
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/\*([^*]+)\*/g, "$1")
+        .replace(/__([^_]+)__/g, "$1")
+        .replace(/_([^_]+)_/g, "$1")
+
+        // Remove hashtag headers but keep the text
+        .replace(/^#{1,6}\s+/gm, "")
+
+        // Remove code blocks entirely (they're often not useful for semantic search)
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/`([^`]+)`/g, "$1")
+
+        // Remove list markers but keep the content
+        .replace(/^\s*[-*+]\s+/gm, "")
+        .replace(/^\s*\d+\.\s+/gm, "")
+
+        // Remove table formatting
+        .replace(/\|/g, " ")
+        .replace(/^\s*[-:]+\s*$/gm, "")
+
+        // Remove citation/reference markers
+        .replace(/\[\d+\]/g, "")
+        .replace(/\(\d+\)/g, "")
+
+        // Remove wiki-specific markup
+        .replace(/\{\{[^}]*\}\}/g, "")
+        .replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, "$1")
+
+        // Remove HTML tags while preserving content
+        .replace(/<(?!\/?(h[1-6]|p|div|br))[^>]*>/gi, " ")
+        .replace(/<\/?(h[1-6]|p|div|br)[^>]*>/gi, " ")
+
+        // Clean up multiple consecutive newlines
+        .replace(/\n{3,}/g, "\n\n")
+
+        // Normalize whitespace
+        .replace(/[ \t]+/g, " ")
+        .replace(/\n\s+/g, "\n")
+
+        // Remove empty lines at start and end
+        .trim()
+    );
+  }
+
+  getSplitter() {
+    return new RecursiveCharacterTextSplitter({
+      chunkSize: 384,
+      chunkOverlap: 0,
+      separators: [
+        "\n## ", // Split on h2 headers first
+        "\n### ", // Then h3 headers
+        "\n#### ", // Then h4 headers
+        "\n##### ", // Then h5 headers
+        "\n\n", // Paragraph breaks
+        "\n", // Line breaks
+        ". ", // Sentences
+        " ", // Words
+        "", // Characters
+      ],
+    });
+  }
+
+  async splitTextIntoChunks(text: string) {
+    const splitter = this.getSplitter();
+    const preprocessedText = this.preprocess(text);
+    const chunks = await splitter.splitText(preprocessedText);
+    return chunks;
+  }
 
   /**
    * Asynchronously generates embeddings for a given document by splitting it into chunks.
@@ -84,18 +185,14 @@ export class TextEmbeddingsInferenceService {
     document: string
   ): Promise<Array<{ text: string; embedding: number[] }>> {
     // Split the document into chunks
-    const splitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 384,
-      chunkOverlap: 1,
-    });
-    const chunks = await splitter.createDocuments([document]);
+    const chunks = await this.splitTextIntoChunks(document);
 
     const result: Array<{ text: string; embedding: number[] }> = [];
 
     for (const chunk of chunks) {
       try {
-        const embedding = await this.generateEmbedding(chunk.pageContent);
-        result.push({ text: chunk.pageContent, embedding });
+        const embedding = await this.generateEmbedding(chunk);
+        result.push({ text: chunk, embedding });
       } catch (error) {
         logError("Error generating embedding for chunk:", error);
       }
@@ -156,7 +253,8 @@ export class TextEmbeddingsInferenceService {
             documentKey: page.key,
             isSummary: true,
             source: "web-scraper",
-            projectId: page.project,
+            projectId: page.projectId,
+            knowledgeSourceId: page.knowledgeSourceId,
           });
         }
 
@@ -172,7 +270,8 @@ export class TextEmbeddingsInferenceService {
             documentKey: page.key,
             isSummary: false,
             source: "web-scraper",
-            projectId: page.project,
+            projectId: page.projectId,
+            knowledgeSourceId: page.knowledgeSourceId,
           });
 
           embeddingsCount++;

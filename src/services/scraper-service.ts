@@ -4,7 +4,7 @@ import { MediaWikiContentExtractor } from "../contentProviders/mediawiki-content
 import { WordPressContentExtractor } from "../contentProviders/wordpress-content-extractor";
 import { StandardContentExtractor } from "../contentProviders/standard-content-extractor";
 import { EchoKnowledgeBaseExtractor } from "../contentProviders/echo-kb-content-extractor";
-
+const TurndownService = require("turndown");
 /**
  * A flexible, extensible web scraper that supports pluggable content extractors for different site types.
  *
@@ -125,7 +125,7 @@ export class PluggableSiteScraper {
   private async extractContent(
     page: Page,
     siteType: string
-  ): Promise<PageContent | null> {
+  ): Promise<MarkdownPageContent | null> {
     let extractor = this.extractors.find((e) => e.name === siteType);
 
     if (!extractor) {
@@ -138,7 +138,30 @@ export class PluggableSiteScraper {
         const isMatch = await extractor.detect(page);
         if (isMatch) {
           logInfo(`Using ${extractor.name} extractor for content extraction`);
-          return await extractor.extract(page);
+
+          const markdownPageContent: MarkdownPageContent = {
+            html: "",
+            title: "",
+            markdown: "",
+          };
+
+          const pageContent = await extractor.extract(page);
+
+          markdownPageContent.html = pageContent.html || "";
+          markdownPageContent.title = pageContent.title || "";
+
+          const turndownService = new TurndownService();
+          markdownPageContent.markdown = turndownService.turndown(
+            pageContent.html,
+            {
+              headingStyle: "atx",
+              bulletListMarker: "-",
+              codeBlockStyle: "fenced",
+              emDelimiter: "*",
+            }
+          );
+
+          return markdownPageContent;
         }
       } catch (error) {
         logWarning(
@@ -173,7 +196,7 @@ export class PluggableSiteScraper {
     const rootPath = startUrlParsed.pathname;
 
     const delay = this.options.delay || 1000;
-    const maxPages = this.options.maxPages || 100;
+    const maxPages = this.options.maxPages || 999999999;
     const timeout = this.options.timeout || 30000;
 
     const pendingUrls: string[] = [startUrl];
@@ -237,20 +260,21 @@ export class PluggableSiteScraper {
         }
 
         logInfo(
-          `Extracted content from: ${cleanUrlString} (${siteType}): ${content.content.length} characters`
+          `Extracted content from: ${cleanUrlString} (${siteType}): ${content.markdown.length} characters`
         );
 
-        if (content.content.length > 20) {
+        if (content.markdown.length > 20) {
           const scrapedPage: ScrapedPage = {
             url: cleanUrlString,
-            content: content.content,
+            content: content.markdown,
             title: content.title,
             siteType: siteType,
+            html: content.html,
           };
 
           this.results.push(scrapedPage);
 
-          logSuccess(`Saved/Updated content for: ${cleanUrlString}`);
+          //logSuccess(`Saved/Updated content for: ${cleanUrlString}`);
         } else {
           logWarning(`No meaningful content found at: ${cleanUrlString}`);
         }
@@ -313,7 +337,7 @@ export class PluggableSiteScraper {
    * Scrapes a single URL and extracts content using the appropriate extractor.
    *
    * This method navigates to the specified URL, waits for the page to stabilize,
-   * and uses a set of extractors to identify the site type and extract relevant content.
+   * and uses a set of extractors to identextify the site type and extract relevant content.
    * If the extracted content is meaningful (length > 20 characters), it returns a `ScrapedPage` object.
    * Otherwise, it logs a warning and returns `null`.
    *
@@ -357,16 +381,17 @@ export class PluggableSiteScraper {
         return null;
       }
 
-      if (content.content.length > 20) {
+      if (content.markdown.length > 20) {
         result = {
           url: url,
-          content: content.content,
+          content: content.markdown,
           title: content.title,
           siteType: siteType,
+          html: content.html,
         };
 
         logSuccess(
-          `Extracted content from single URL: ${url} (${siteType}): ${content.content.length} characters`
+          `Extracted content from single URL: ${url} (${siteType}): ${content.markdown.length} characters`
         );
         return result;
       } else {
@@ -400,3 +425,5 @@ export async function scrapeSite(
     await scraper.close();
   }
 }
+
+export const scrapingService = new PluggableSiteScraper();

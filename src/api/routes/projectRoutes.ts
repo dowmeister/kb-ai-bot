@@ -3,6 +3,8 @@ import Project from "../../database/models/project";
 import ApiResponse from "../../helpers/api-response";
 import KnowledgeSource from "../../database/models/knowledgeSource";
 import { queueManager } from "../../queue";
+import KnowledgeDocument from "../../database/models/knowledgeDocument";
+import { qdrantService } from "../../services/qdrant-service";
 
 const router = Router();
 
@@ -124,9 +126,21 @@ router.delete(
   "/:project_id/sources/:source_id",
   async (req: Request, res: Response): Promise<any> => {
     try {
-      const data = await KnowledgeSource.findByIdAndDelete(
-        req.params.source_id
+      await KnowledgeDocument.deleteMany({
+        knowledgeSourceId: req.params.source_id,
+        projectId: req.params.project_id,
+      }).exec();
+
+      await qdrantService.deleteVectorsByKnolwedgeSourceId(
+        req.params.source_id,
+        req.params.project_id
       );
+
+      const data = await KnowledgeSource.findOneAndDelete({
+        _id: req.params.source_id,
+        project: req.params.project_id,
+      });
+
       res.status(201).json(new ApiResponse<IKnowledgeSource>(data));
     } catch (err) {
       res

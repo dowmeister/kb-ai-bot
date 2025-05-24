@@ -97,45 +97,11 @@ export class StandardContentExtractor extends BaseContentExtractor {
         mainContentElement = document.body;
       }
 
-      // Extract text from paragraphs and headings
-      const contentElements = Array.from(
-        mainContentElement.querySelectorAll(
-          "h1, h2, h3, h4, h5, h6, p, li, td, th"
-        )
-      );
-
-      // Use a Set to avoid duplicates
-      const processedTexts = new Set<string>();
-      const contentParts: string[] = [];
-
-      contentElements.forEach((element) => {
-        const text = element.textContent?.trim() || "";
-
-        // Skip very short or already processed text
-        if (text.length < 20 || processedTexts.has(text)) {
-          return;
-        }
-
-        // Check if this is a subset of any existing text
-        let isSubset = false;
-        processedTexts.forEach((existingText) => {
-          if (existingText.includes(text) && existingText !== text) {
-            isSubset = true;
-          }
-        });
-
-        if (!isSubset) {
-          processedTexts.add(text);
-          contentParts.push(text);
-        }
-      });
-
       // Join with newlines and clean up
-      let finalContent = contentParts.join("\n\n");
+      let finalContent = mainContentElement.innerHTML;
 
       // Final cleanup
       finalContent = finalContent
-        .replace(/<[^>]*>/g, "") // Remove any remaining HTML tags
         .replace(/&nbsp;/g, " ") // Replace &nbsp; with spaces
         .replace(/&amp;/g, "&") // Replace &amp; with &
         .replace(/&lt;/g, "<") // Replace &lt; with
@@ -146,7 +112,7 @@ export class StandardContentExtractor extends BaseContentExtractor {
 
       return {
         title: pageTitle,
-        content: finalContent,
+        html: finalContent,
       };
     });
   }

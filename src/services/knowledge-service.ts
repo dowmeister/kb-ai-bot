@@ -2,81 +2,105 @@ import KnowledgeDocument from "../database/models/knowledgeDocument";
 import { logInfo, logSuccess, logWarning } from "../helpers/logger";
 import { embeddingService } from "./embedding-service";
 import { qdrantService } from "./qdrant-service";
-import { scrapeSite } from "./scraper-service";
+import { scrapeSite, scrapingService } from "./scraper-service";
 
 export class KnowledgeService {
-  async scrapeSiteAndEmbed(project: IProject, startUrl?: string) {
-    const startUrls = [];
+  async scrapeDocumentAndEmbed(knowledgeDocumentId: string) {
+    try {
+      const knowledgeDocument = await KnowledgeDocument.findById(
+        knowledgeDocumentId
+      );
 
-    if (!startUrl) {
-      if (!project.knowledgeSources) {
-        logWarning("No knowledge sources found. Exiting...");
-        return;
+      if (!knowledgeDocument) {
+        logWarning(
+          `Knowledge document with ID ${knowledgeDocumentId} not found.`
+        );
+        return false;
       }
 
-      startUrls.push(
-        ...project.knowledgeSources.map((source) => {
-          if (source.type === "web") {
-            return source.url;
-          }
-        })
-      );
-    } else {
-      startUrls.push(startUrl);
-    }
+      if (!knowledgeDocument.url) {
+        logWarning(
+          `No URL found for knowledge document with ID ${knowledgeDocumentId}. Skipping...`
+        );
+        return false;
+      }
 
-    if (startUrls.length === 0) {
-      logWarning("No URLs found to scrape. Exiting...");
+      const scrapedPage = await scrapingService.scrapeSingleUrl(
+        knowledgeDocument.url
+      );
+
+      if (!scrapedPage) {
+        logWarning(`Failed to scrape ${knowledgeDocument.url}. Skipping...`);
+        return false;
+      }
+
+      logInfo(`Scraped content from ${knowledgeDocument.url}.`);
+
+      knowledgeDocument.content = scrapedPage.content;
+      knowledgeDocument.title = scrapedPage.title;
+      knowledgeDocument.contentLength = scrapedPage.content.length;
+      knowledgeDocument.siteType = scrapedPage.siteType;
+
+      await knowledgeDocument.save();
+
+      await embeddingService.generateEmbeddingsFromPages([knowledgeDocument]);
+
+      return knowledgeDocument;
+    } catch (error) {
+      logWarning(`Error scraping document: ${(error as Error).message}`);
+      return false;
+    }
+  }
+
+  async scrapeSiteAndEmbed(project: IProject, source?: IKnowledgeSource) {
+    if (!source?.url) {
+      logWarning("No URL found to scrape. Skipping...");
       return;
     }
 
-    for (const url of startUrls) {
-      if (!url) {
-        logWarning("No URL found to scrape. Skipping...");
-        continue;
-      }
+    let pages: ScrapedPage[] = [];
 
-      let pages: ScrapedPage[] = [];
+    logInfo(`Starting scraping from ${source.url}...`);
 
-      logInfo(`Starting scraping from ${startUrl}...`);
+    pages = await scrapeSite(source.url, project as IProject);
 
-      pages = await scrapeSite(url, project as IProject);
+    logSuccess(`Indexed ${pages.length} pages.`);
 
-      logSuccess(`Indexed ${pages.length} pages.`);
+    await qdrantService.initializeCollection();
 
-      await qdrantService.initializeCollection();
+    const pagesToEmbed: IKnowledgeDocument[] = [];
 
-      const pagesToEmbed: IKnowledgeDocument[] = [];
+    for (const page of pages) {
+      let existingPage = await KnowledgeDocument.findOne({
+        key: page.url,
+        project: project._id,
+        knowledgeSourceId: source._id,
+      });
 
-      for (const page of pages) {
-        let existingPage = await KnowledgeDocument.findOne({
+      if (existingPage) {
+        // update existing page content
+        await existingPage.save();
+      } else {
+        existingPage = await KnowledgeDocument.create({
+          title: page.title,
+          content: page.content,
           key: page.url,
-          project: project._id,
+          url: page.url,
+          isSummary: false,
+          type: "web-scraper",
+          projectId: project._id,
+          contentLength: page.content.length,
+          knowledgeSourceId: source._id,
+          siteType: page.siteType,
         });
 
-        if (existingPage) {
-          if (existingPage.content !== page.content) {
-            pagesToEmbed.push(existingPage);
-          }
-        } else {
-          existingPage = await KnowledgeDocument.create({
-            title: page.title,
-            content: page.content,
-            key: page.url,
-            url: page.url,
-            isSummary: false,
-            source: "web-scraper",
-            project: project._id,
-            contentLength: page.content.length,
-          });
-
-          await existingPage.save();
-          pagesToEmbed.push(existingPage);
-        }
+        await existingPage.save();
       }
 
-      await embeddingService.generateEmbeddingsFromPages(pagesToEmbed);
+      pagesToEmbed.push(existingPage);
     }
+
+    await embeddingService.generateEmbeddingsFromPages(pagesToEmbed);
 
     logSuccess("Done!");
   }

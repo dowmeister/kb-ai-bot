@@ -115,3 +115,17 @@ export function buildReply(answer: AIAnswer): EmbedBuilder {
 export function buildPrompt(context: string): string {
   return DEFAULT_PROMPT.replace("{context}", context);
 }
+
+// Example cleaning function
+export function cleanForEmbedding(text: string) {
+  return text
+    .replace(/```[\s\S]*?```/g, "") // Remove code blocks
+    .replace(/`([^`]+)`/g, "$1") // Remove inline code backticks
+    .replace(/\*\*([^*]+)\*\*/g, "$1") // Remove bold
+    .replace(/\*([^*]+)\*/g, "$1") // Remove italic
+    .replace(/<[^>]*>/g, "") // Remove HTML tags
+    .replace(/#+\s/g, "") // Remove heading markers
+    .replace(/^\s*[-*+]\s/gm, "") // Remove list markers
+    .replace(/\n{2,}/g, "\n") // Normalize whitespace
+    .trim();
+}

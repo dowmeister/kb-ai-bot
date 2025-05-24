@@ -9,9 +9,12 @@ import { logSuccess } from "../helpers/logger";
 import { queueManager } from "../queue";
 import { ExpressAdapter } from "@bull-board/express";
 import { createBullBoard } from "@bull-board/api";
+import scrapingRoutes from "./routes/scrapingRoutes";
+import mongoose from "mongoose";
 const { BullMQAdapter } = require("@bull-board/api/bullMQAdapter");
 var cors = require("cors");
 
+mongoose.set("debug", process.env.MONGODB_DEBUG === "true");
 const app: Application = express();
 const port = process.env.API_SERVER_PORT || 3001;
 
@@ -23,6 +26,7 @@ app.use("/api/knowledge", knowledgeDocumentRouter);
 app.use("/api/projects", projectRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/embeddings", embeddingsRouter);
+app.use("/api/scraping", scrapingRoutes);
 
 const queue = queueManager.getWebScrapingQueue();
 

@@ -8,7 +8,7 @@ export async function webScrapingJob(job: Job) {
     project,
     source,
   }: { url: string; project: IProject; source: IKnowledgeSource } = job.data;
-  
+
   console.log(`Starting web scraping job for URL: ${url}`);
 
   try {
@@ -18,7 +18,7 @@ export async function webScrapingJob(job: Job) {
       { new: true }
     );
 
-    await knowledgeService.scrapeSiteAndEmbed(project, url);
+    await knowledgeService.scrapeSiteAndEmbed(project, source);
 
     console.log(`Successfully scraped and embedded data from URL: ${url}`);
 
@@ -28,7 +28,6 @@ export async function webScrapingJob(job: Job) {
       { new: true }
     );
   } catch (error) {
-
     await KnowledgeSource.findByIdAndUpdate(
       source._id,
       { $set: { status: "scan-failed" } },

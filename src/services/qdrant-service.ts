@@ -18,13 +18,13 @@ import { v4 as uuidv4 } from "uuid";
  * ```typescript
  * const qdrantService = new QdrantService();
  * await qdrantService.initializeCollection();
- * 
+ *
  * // Upsert a vector
  * await qdrantService.upsert([0.1, 0.2, 0.3], { url: "https://example.com" });
- * 
+ *
  * // Search for similar vectors
  * const results = await qdrantService.search([0.1, 0.2, 0.3]);
- * 
+ *
  * // Delete vectors by URL
  * const deletedCount = await qdrantService.deleteVectorsByUrl("https://example.com");
  * ```
@@ -78,7 +78,7 @@ export class QdrantService {
       throw error;
     }
   }
-  
+
   async upsertMany(
     points: Array<{
       id: string;
@@ -97,7 +97,6 @@ export class QdrantService {
     }
   }
 
-  
   /**
    * Upserts a vector and its associated payload into the Qdrant collection.
    * If a point with the same ID already exists, it will be updated; otherwise, a new point will be created.
@@ -132,7 +131,6 @@ export class QdrantService {
     }
   }
 
- 
   /**
    * Searches for vectors in the specified collection using the provided query vector.
    *
@@ -171,7 +169,7 @@ export class QdrantService {
       throw error;
     }
   }
-  
+
   /**
    * Finds vector IDs associated with a specific URL in the collection.
    *
@@ -390,6 +388,49 @@ export class QdrantService {
       return countResult.count;
     } catch (error) {
       logError(`Error deleting vectors for DocumentKey ${key}:`, error);
+      throw error;
+    }
+  }
+
+  async deleteVectorsByKnolwedgeSourceId(
+    sourceId: string,
+    projectId: string
+  ): Promise<number> {
+    try {
+      // Create a filter to match the URL exactly
+      const filter = {
+        must: [
+          {
+            key: "knowledgeSourceId",
+            match: { value: sourceId },
+          },
+          {
+            key: "projectId",
+            match: { value: projectId },
+          },
+        ],
+      };
+
+      // First count how many vectors will be deleted
+      const countResult = await this.client.count(this.collectionName, {
+        filter,
+        exact: true,
+      });
+
+      if (countResult.count === 0) {
+        logInfo(`No vectors found for source ${sourceId}. Nothing to delete.`);
+        return 0;
+      }
+
+      // Delete the vectors
+      await this.client.delete(this.collectionName, {
+        filter,
+        wait: true,
+      });
+
+      return countResult.count;
+    } catch (error) {
+      logError(`Error deleting vectors for source ${sourceId}:`, error);
       throw error;
     }
   }

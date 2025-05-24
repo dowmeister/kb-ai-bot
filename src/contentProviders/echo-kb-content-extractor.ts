@@ -60,58 +60,25 @@ export class EchoKnowledgeBaseExtractor extends BaseContentExtractor {
         ".epkb-rating-element", // Rating elements
         ".epkb-comments-container", // Comments
         ".epkb-article-meta-container", // Meta information
+        "#eckb-article-content-breadcrumb-container",
+        "#eckb-article-right-sidebar",
+        "#eckb-article-content-header-row-3",
         "script", // Scripts
-        "style", // Styles
+        "style", // Styles,
+        "img",
+        "noscript",
+        "h1",
       ];
 
       elementsToRemove.forEach((selector) => {
         contentElement.querySelectorAll(selector).forEach((el) => el.remove());
       });
 
-      // Extract headings and paragraphs
-      const headings = Array.from(
-        contentElement.querySelectorAll("h1, h2, h3, h4, h5, h6")
-      );
-      const paragraphs = Array.from(contentElement.querySelectorAll("p"));
-      const listItems = Array.from(contentElement.querySelectorAll("li"));
-
-      const contentBlocks: string[] = [];
-
-      // Process headings
-      headings.forEach((heading) => {
-        const text = heading.textContent?.trim();
-        if (text) {
-          contentBlocks.push(`## ${text}`);
-        }
-      });
-
-      // Process paragraphs
-      paragraphs.forEach((paragraph) => {
-        const text = paragraph.textContent?.trim();
-        if (text && text.length > 0) {
-          contentBlocks.push(text);
-        }
-      });
-
-      // Process list items
-      let currentList: string[] = [];
-      listItems.forEach((item) => {
-        const text = item.textContent?.trim();
-        if (text && text.length > 0) {
-          currentList.push(`- ${text}`);
-        }
-      });
-
-      if (currentList.length > 0) {
-        contentBlocks.push(currentList.join("\n"));
-      }
-
-      // Combine all content with appropriate spacing
-      let finalContent = contentBlocks.join("\n\n");
+      // convert contentElement html to markdown
+      let finalContent = contentElement.innerHTML;
 
       // Clean up the content
       finalContent = finalContent
-        .replace(/<[^>]*>/g, "") // Remove any remaining HTML tags
         .replace(/&nbsp;/g, " ") // Replace &nbsp; with spaces
         .replace(/\s{3,}/g, "\n\n") // Replace multiple spaces with newlines
         .replace(/\n{3,}/g, "\n\n") // Normalize excess newlines
@@ -119,7 +86,7 @@ export class EchoKnowledgeBaseExtractor extends BaseContentExtractor {
 
       return {
         title: pageTitle,
-        content: finalContent,
+        html: finalContent,
       };
     });
   }

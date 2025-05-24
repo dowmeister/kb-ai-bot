@@ -41,11 +41,18 @@ interface ScrapedPage {
   update_at?: Date;
   content_length?: number;
   siteType?: string;
+  html: string;
 }
 
 interface PageContent {
-  content: string;
+  html: string;
   title?: string;
+}
+
+interface MarkdownPageContent {
+  html: string;
+  title?: string;
+  markdown: string;
 }
 
 interface VectorEmbed {
@@ -84,6 +91,8 @@ type QdrantEmbeddingPayload = Record<string, any> & {
   isSummary?: boolean;
   chunkIndex?: number;
   guildId?: string | null;
+  projectId?: string;
+  knowledgeSourceId?: string;
 };
 
 type QdrantEmbeddingPayloadSource = "discord" | "web-scraper";
@@ -158,16 +167,18 @@ interface IKnowledgeDocument {
   key: string;
   url?: string;
   isSummary?: boolean;
-  source: "web-scraper" | "discord" | "manual" | "pdf-document";
+  type: "web-scraper" | "discord" | "manual" | "pdf-document";
   guildId?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
-  projectId?: string;
   contentLength: number;
   pageType?: string;
   summary?: string;
-  knowledgeSource?: IKnowledgeSource | string;
-  project?: IProject | string;
+  projectId: string;
+  knowledgeSourceId: string;
+  project: IProject;
+  knowledgeSource: IKnowledgeSource;
+  siteType?: string;
 }
 
 type WebScraperResults = {

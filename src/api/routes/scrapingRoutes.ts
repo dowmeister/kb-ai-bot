@@ -1,0 +1,37 @@
+import { Request, Response, Router } from "express";
+import ApiResponse from "../../helpers/api-response";
+import { scrapeSite, scrapingService } from "../../services/scraper-service";
+import { embeddingService } from "../../services/embedding-service";
+
+const router = Router();
+
+router.post("/test", async (_req: Request, res: Response): Promise<any> => {
+  try {
+    const scrapedPage = await scrapingService.scrapeSingleUrl(_req.body.url);
+
+    if (!scrapedPage) {
+      return res
+        .status(404)
+        .json(new ApiResponse(null, false, "Page not found"));
+    }
+
+    const chunks = await embeddingService.splitTextIntoChunks(
+      scrapedPage.content
+    );
+
+    const scrapingResult = {
+      page: scrapedPage,
+      chunks: chunks,
+    };
+
+    res
+      .status(200)
+      .json(new ApiResponse(scrapingResult, true, "Scraping successful"));
+  } catch (err) {
+    res
+      .status(500)
+      .json(new ApiResponse<IProject[]>([], false, (err as Error).message));
+  }
+});
+
+export default router;
