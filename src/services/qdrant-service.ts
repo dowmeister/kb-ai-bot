@@ -434,6 +434,40 @@ export class QdrantService {
       throw error;
     }
   }
+
+  async queryGroups(
+    queryVector: number[],
+    limit: number = 5,
+    filter?: Record<string, any>
+  ): Promise<QdrantQueryGroupsResult> {
+    try {
+      const result = await this.client.queryGroups(this.collectionName, {
+        query: queryVector,
+        limit,
+        filter,
+        with_payload: true,
+        score_threshold: 0.4,
+        group_by: "url",
+        group_size: 4,
+        with_lookup: {
+          collection: this.collectionName,
+          with_payload: [
+            "title",
+            "content",
+            "url",
+            "chunkIndex",
+            "projectId",
+            "knowledgeSourceId",
+          ],
+          with_vectors: false,
+        },
+      });
+      return result as QdrantQueryGroupsResult;
+    } catch (error) {
+      logError("Error searching vectors:", error);
+      throw error;
+    }
+  }
 }
 
 export const qdrantService = new QdrantService();

@@ -5,31 +5,51 @@ import { qdrantService } from "../services/qdrant-service";
 
 /**
  * Asks a question and retrieves an answer using an AI model.
- * 
+ *
  * This function processes the given question by generating an embedding,
  * searching for relevant documents, and constructing a context from the
  * search results. It then uses a language model to generate a natural
  * language answer based on the context.
- * 
+ *
  * @param question - The question to be asked as a string.
  * @returns A promise that resolves to an `AIAnswer` object containing:
  * - `answer`: The generated answer as a string.
  * - `urls`: An array of URLs related to the search results.
  * - `replied` (optional): A boolean indicating if a valid answer was generated.
- * 
+ *
  * The function handles errors gracefully and logs relevant information
  * during the process. If no relevant information is found, a default
  * response is returned.
  */
-export async function askQuestion(question: string): Promise<AIAnswer> {
+export async function askQuestion(
+  question: string,
+  project: IProject
+): Promise<AIAnswer> {
   logInfo(`Embedding your question: "${question}"`);
 
   try {
     const embedding = await embeddingService.generateEmbedding(question);
 
-    const searchResult = await qdrantService.search(embedding, 3);
+    const searchResult = await qdrantService.queryGroups(embedding, 4, {
+      must: [
+        {
+          key: "projectId",
+          match: {
+            value: project._id.toString(),
+          },
+        },
+      ],
+    });
 
-    if (searchResult.length === 0) {
+    if (!searchResult.groups) {
+      logWarning("No search results found.");
+      return {
+        answer: "Sorry, I could not find any relevant information.",
+        urls: [],
+      };
+    }
+
+    if (searchResult.groups.length === 0) {
       logWarning("No matching documents found.");
       return {
         answer: "Sorry, I could not find any relevant information.",
@@ -37,52 +57,22 @@ export async function askQuestion(question: string): Promise<AIAnswer> {
       };
     }
 
-    logSuccess(`Found ${searchResult.length} matching chunks.`);
+    logSuccess(`Found ${searchResult.groups.length} matching groups.`);
 
     let context: string = "";
     const answers: Record<string, any[]> = {};
 
-    // group hits and payload by URL
-    for (let i = 0; i < searchResult.length; i++) {
-      const hit = searchResult[i];
-      const payload = hit.payload as any;
+    const allHits = searchResult.groups
+      .flatMap((group: QdrantQueryGroupResultGroup) => group.hits)
+      .sort(
+        (a: QdrantQueryGroupResultHit, b: QdrantQueryGroupResultHit) =>
+          b.score - a.score
+      )
+      .filter((hit: QdrantQueryGroupResultHit) => hit.score > 0.8);
 
-      if (!payload) {
-        continue;
-      }
+    logInfo(`Found ${allHits.length} relevant hits.`);
 
-      if (!(payload as any).text) {
-        continue;
-      }
-
-      if (answers[payload.url]) {
-        answers[payload.url].push(payload);
-      } else {
-        answers[payload.url] = [payload];
-      }
-    }
-
-    logInfo(`Found ${Object.keys(answers).length} unique URLs.`);
-
-    // concatenate the content of the hits for each URL - url is the key and build the context with Article {n}: Title: {title} Content: {content}
-    for (let index = 0; index < Object.keys(answers).length; index++) {
-      const url = Object.keys(answers)[index];
-      const answersByUrl = answers[url];
-
-      logInfo(`Found ${answersByUrl.length} answers for URL: ${url}`);
-
-      const title = answersByUrl[0].title || "No Title";
-
-      context += `# ${title}\n`;
-
-      for (const element of answersByUrl) {
-        context += `${element.text} `;
-      }
-
-      context += `\n\n`;
-    }
-
-    context = context.trim();
+    context = allHits.map((m) => m.payload.text).join("\n\n");
 
     if (context.length === 0) {
       logWarning("No content found in the search results.");
@@ -95,7 +85,7 @@ export async function askQuestion(question: string): Promise<AIAnswer> {
 
     logInfo(`Context for LLM:\n${context}`);
 
-    const provider = aiRouter.getDefaultProvider();
+    const provider = aiRouter.getProvider(project.aiService);
     // Generate a natural language answer using the LLM
     const answer = await provider.completePrompt(question, context);
 
@@ -104,13 +94,7 @@ export async function askQuestion(question: string): Promise<AIAnswer> {
     return {
       answer,
       replied: true,
-      urls: [
-        ...new Set(
-          searchResult
-            .map((hit) => (hit.payload as any)?.url)
-            .filter((url: string) => url !== undefined)
-        ),
-      ],
+      urls: [],
     };
   } catch (error) {
     logError(

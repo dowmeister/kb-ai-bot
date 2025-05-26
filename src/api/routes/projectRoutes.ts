@@ -61,11 +61,13 @@ router.put("/:id", async (req: Request, res: Response): Promise<any> => {
       req.body as IProject,
       { new: true }
     );
+
     if (!project)
       return res
         .status(404)
         .json(new ApiResponse<IProject>(null, false, "Not found"));
-    res.json(project);
+
+    res.json(new ApiResponse<IProject>(project));
   } catch (err) {
     res
       .status(400)

@@ -7,11 +7,10 @@ import { buildPrompt } from "../../helpers/utils";
 
 export default class GeminiAIProvider implements AIProvider {
   private apiKey: string = process.env.GEMINI_API_KEY || "";
-  protected client: ChatGoogleGenerativeAI;
+  protected client: GoogleGenAI;
 
   constructor() {
-    this.client = new ChatGoogleGenerativeAI({
-      model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+    this.client = new GoogleGenAI({
       apiKey: this.apiKey,
     });
   }
@@ -28,14 +27,11 @@ export default class GeminiAIProvider implements AIProvider {
   }
 
   async completePrompt(question: string, context: string): Promise<string> {
-    /*
-    const systemPrompt = `
-  ${DEFAULT_PROMPT}
-    `.trim();
+    const systemPrompt = buildPrompt(context);
 
     const chat = this.client.chats.create({
       config: {
-        systemInstruction: systemPrompt + `\n\nContext:\n${context}`,
+        systemInstruction: systemPrompt,
       },
       model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
     });
@@ -45,16 +41,6 @@ export default class GeminiAIProvider implements AIProvider {
     });
 
     return response.text || "";
-
-    */
-    const messages = [
-      new SystemMessage(buildPrompt(context)),
-      new HumanMessage(question),
-    ];
-
-    const result = await this.client.invoke(messages);
-
-    return result.content.toString() || "";
   }
 
   public async summarize(text: string): Promise<string> {

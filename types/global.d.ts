@@ -233,3 +233,19 @@ interface ExtractionOptions {
   weightTitles?: boolean;
   weightHeaders?: boolean;
 }
+
+type QdrantQueryGroupsResult = {
+  groups: QdrantQueryGroupResultGroup[];
+};
+
+type QdrantQueryGroupResultGroup = {
+  id: string;
+  hits: QdrantQueryGroupResultHit[];
+};
+
+type QdrantQueryGroupResultHit = {
+  id: string;
+  score: number;
+  version: number;
+  payload: QdrantEmbeddingPayload;
+};
