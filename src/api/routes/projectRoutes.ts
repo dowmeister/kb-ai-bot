@@ -124,6 +124,52 @@ router.post(
   }
 );
 
+router.get(
+  "/:project_id/sources/:source_id",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const data = await KnowledgeSource.findOne({
+        _id: req.params.source_id,
+        project: req.params.project_id,
+      }).populate("project");
+      if (!data)
+        return res
+          .status(404)
+          .json(new ApiResponse<IProject>(null, false, "Not found"));
+      res.json(new ApiResponse<IKnowledgeSource>(data));
+    } catch (err) {
+      res
+        .status(500)
+        .json(new ApiResponse<IProject>(null, false, (err as Error).message));
+    }
+  }
+);
+
+router.put(
+  "/:project_id/sources/:source_id",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const data = await KnowledgeSource.findOneAndUpdate(
+        {
+          _id: req.params.source_id,
+          project: req.params.project_id,
+        },
+        req.body as IKnowledgeSource,
+        { new: true }
+      ).populate("project");
+      if (!data)
+        return res
+          .status(404)
+          .json(new ApiResponse<IProject>(null, false, "Not found"));
+      res.json(new ApiResponse<IKnowledgeSource>(data));
+    } catch (err) {
+      res
+        .status(400)
+        .json(new ApiResponse<IProject>(null, false, (err as Error).message));
+    }
+  }
+);
+
 router.delete(
   "/:project_id/sources/:source_id",
   async (req: Request, res: Response): Promise<any> => {
@@ -169,6 +215,29 @@ router.post(
       queueManager.startScrapingSource(source);
 
       res.status(201).json(new ApiResponse<IKnowledgeSource>(source));
+    } catch (err) {
+      res
+        .status(400)
+        .json(new ApiResponse<IProject>(null, false, (err as Error).message));
+    }
+  }
+);
+
+router.post(
+  "/:project_id/sources/:source_id/clear",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      await KnowledgeDocument.deleteMany({
+        projectId: req.params.project_id,
+        knowledgeSourceId: req.params.source_id,
+      });
+
+      await qdrantService.deleteVectorsByKnolwedgeSourceId(
+        req.params.source_id,
+        req.params.project_id
+      );
+
+      res.status(201).json(new ApiResponse<IKnowledgeSource>());
     } catch (err) {
       res
         .status(400)

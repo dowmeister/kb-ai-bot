@@ -199,6 +199,17 @@ export class PluggableSiteScraper {
       await this.initialize();
     }
 
+    if (!startUrl) {
+      throw new Error("No start URL provided for scraping.");
+    }
+
+    logInfo(`Starting scraping from: ${startUrl}`);
+    logInfo("Options:");
+    logInfo(`- Delay: ${this.options.delay || 1000} ms`);
+    logInfo(`- Max Pages: ${this.options.maxPages || 999999999}`);
+    logInfo(`- Timeout: ${this.options.timeout || 30000} ms`);
+    logInfo(`- Ignore List: ${this.ignoreList.join(", ") || "None"}`);
+
     const startUrlParsed = new URL(startUrl);
     const domainOnly = startUrlParsed.hostname;
     const rootPath = startUrlParsed.pathname;
@@ -208,8 +219,6 @@ export class PluggableSiteScraper {
     const timeout = this.options.timeout || 30000;
 
     const pendingUrls: string[] = [startUrl];
-
-    logInfo(`Starting scraping from: ${startUrl}`);
 
     while (pendingUrls.length > 0 && this.results.length < maxPages) {
       const currentUrl = pendingUrls.shift()!;

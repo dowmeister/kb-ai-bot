@@ -23,23 +23,29 @@ import { qdrantService } from "../services/qdrant-service";
  */
 export async function askQuestion(
   question: string,
-  project: IProject
+  project: IProject,
+  minScore: number = 0.5
 ): Promise<AIAnswer> {
   logInfo(`Embedding your question: "${question}"`);
 
   try {
     const embedding = await embeddingService.generateEmbedding(question);
 
-    const searchResult = await qdrantService.queryGroups(embedding, 4, {
-      must: [
-        {
-          key: "projectId",
-          match: {
-            value: project._id.toString(),
+    const searchResult = await qdrantService.queryGroups(
+      embedding,
+      3,
+      minScore,
+      {
+        must: [
+          {
+            key: "projectId",
+            match: {
+              value: project._id.toString(),
+            },
           },
-        },
-      ],
-    });
+        ],
+      }
+    );
 
     if (!searchResult.groups) {
       logWarning("No search results found.");
@@ -60,7 +66,6 @@ export async function askQuestion(
     logSuccess(`Found ${searchResult.groups.length} matching groups.`);
 
     let context: string = "";
-    const answers: Record<string, any[]> = {};
 
     const allHits = searchResult.groups
       .flatMap((group: QdrantQueryGroupResultGroup) => group.hits)
@@ -68,7 +73,7 @@ export async function askQuestion(
         (a: QdrantQueryGroupResultHit, b: QdrantQueryGroupResultHit) =>
           b.score - a.score
       )
-      .filter((hit: QdrantQueryGroupResultHit) => hit.score > 0.8);
+      .filter((hit: QdrantQueryGroupResultHit) => hit.score > minScore);
 
     logInfo(`Found ${allHits.length} relevant hits.`);
 
@@ -87,7 +92,11 @@ export async function askQuestion(
 
     const provider = aiRouter.getProvider(project.aiService);
     // Generate a natural language answer using the LLM
-    const answer = await provider.completePrompt(question, context);
+    const answer = await provider.completePrompt(
+      question,
+      context,
+      project.agentPrompt
+    );
 
     logInfo(`Answer from LLM: ${answer}`);
 
@@ -95,6 +104,7 @@ export async function askQuestion(
       answer,
       replied: true,
       urls: [],
+      hits: allHits,
     };
   } catch (error) {
     logError(

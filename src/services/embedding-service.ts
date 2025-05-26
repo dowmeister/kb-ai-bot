@@ -255,6 +255,7 @@ export class TextEmbeddingsInferenceService {
             source: "web-scraper",
             projectId: page.projectId,
             knowledgeSourceId: page.knowledgeSourceId,
+            knowledgeDocumentId: page._id,
           });
         }
 
@@ -272,6 +273,7 @@ export class TextEmbeddingsInferenceService {
             source: "web-scraper",
             projectId: page.projectId,
             knowledgeSourceId: page.knowledgeSourceId,
+            knowledgeDocumentId: page._id,
           });
 
           embeddingsCount++;

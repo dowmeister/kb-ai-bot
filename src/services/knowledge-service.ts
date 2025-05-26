@@ -2,7 +2,11 @@ import KnowledgeDocument from "../database/models/knowledgeDocument";
 import { logInfo, logSuccess, logWarning } from "../helpers/logger";
 import { embeddingService } from "./embedding-service";
 import { qdrantService } from "./qdrant-service";
-import { scrapeSite, scrapingService } from "./scraper-service";
+import {
+  PluggableSiteScraper,
+  scrapeSite,
+  scrapingService,
+} from "./scraper-service";
 
 export class KnowledgeService {
   async scrapeDocumentAndEmbed(knowledgeDocumentId: string) {
@@ -61,11 +65,20 @@ export class KnowledgeService {
       return;
     }
 
+    const scraper = new PluggableSiteScraper({
+      delay: source?.delay,
+      maxPages: source?.maxPages,
+      ignoreList: source?.ignoreList,
+      maxRetries: source?.maxRetries,
+      timeout: source?.timeout,
+      userAgent: source?.userAgent,
+    });
+
     let pages: ScrapedPage[] = [];
 
     logInfo(`Starting scraping from ${source.url}...`);
 
-    pages = await scrapeSite(source.url, async (page: ScrapedPage) => {
+    pages = await scraper.scrape(source.url, async (page: ScrapedPage) => {
       try {
         let existingPage = await KnowledgeDocument.findOne({
           key: page.url,

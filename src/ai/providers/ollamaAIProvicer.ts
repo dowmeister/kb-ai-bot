@@ -18,7 +18,8 @@ export default class OllamaAIProvider implements AIProvider {
     return response.data.embedding;
   }
 
-  async completePrompt(question: string, context: string): Promise<string> {
+  async completePrompt(question: string, context: string,
+    prompt?: string): Promise<string> {
     const systemPrompt = `
   ${DEFAULT_PROMPT}
   Context:

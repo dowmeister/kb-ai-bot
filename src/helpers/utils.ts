@@ -112,8 +112,8 @@ export function buildReply(answer: AIAnswer): EmbedBuilder {
   return embed;
 }
 
-export function buildPrompt(context: string): string {
-  return DEFAULT_PROMPT.replace("{context}", context);
+export function buildPrompt(context: string, prompt?: string): string {
+  return (prompt || DEFAULT_PROMPT).replace("{context}", context);
 }
 
 // Example cleaning function

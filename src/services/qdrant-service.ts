@@ -437,7 +437,8 @@ export class QdrantService {
 
   async queryGroups(
     queryVector: number[],
-    limit: number = 5,
+    limit: number = 3,
+    score_threshold: number = 0.4,
     filter?: Record<string, any>
   ): Promise<QdrantQueryGroupsResult> {
     try {
@@ -446,9 +447,9 @@ export class QdrantService {
         limit,
         filter,
         with_payload: true,
-        score_threshold: 0.4,
+        score_threshold: score_threshold,
         group_by: "url",
-        group_size: 4,
+        group_size: 3,
         with_lookup: {
           collection: this.collectionName,
           with_payload: [
@@ -465,6 +466,45 @@ export class QdrantService {
       return result as QdrantQueryGroupsResult;
     } catch (error) {
       logError("Error searching vectors:", error);
+      throw error;
+    }
+  }
+
+  async findVectorsByKnolwedgeDocumentId(documentId: string): Promise<any[]> {
+    try {
+      // Create a filter to match the URL exactly
+      const filter = {
+        must: [
+          {
+            key: "knowledgeDocumentId",
+            match: { value: documentId },
+          },
+        ],
+      };
+
+      // Search with the filter, asking for IDs only
+      const result = await this.client.scroll(this.collectionName, {
+        filter,
+        limit: 100,
+        with_payload: true,
+        with_vector: false,
+      });
+
+      // Extract and return point IDs
+      const points = result.points;
+
+      const orderedPoints = points.sort((a, b) => {
+        const aIndex = (a.payload as QdrantEmbeddingPayload)?.chunkIndex || 0;
+        const bIndex = (b.payload as QdrantEmbeddingPayload)?.chunkIndex || 0;
+        return aIndex - bIndex;
+      });
+
+      return orderedPoints;
+    } catch (error) {
+      logError(
+        `Error finding vectors for Knowledge Document Id ${documentId}:`,
+        error
+      );
       throw error;
     }
   }

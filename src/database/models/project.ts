@@ -33,6 +33,9 @@ const ProjectSchema = new Schema(
     aiModel: {
       type: String,
     },
+    agentPrompt: {
+      type: String,
+    },
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

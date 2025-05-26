@@ -26,7 +26,11 @@ export class OpenAIProvider implements AIProvider {
     return [];
   }
 
-  async completePrompt(question: string, context: string): Promise<string> {
+  async completePrompt(
+    question: string,
+    context: string,
+    prompt?: string
+  ): Promise<string> {
     /*    const systemPrompt = `
    ${DEFAULT_PROMPT}
     `.trim();
@@ -44,7 +48,7 @@ export class OpenAIProvider implements AIProvider {
     */
 
     const messages = [
-      new SystemMessage(buildPrompt(context)),
+      new SystemMessage(buildPrompt(context, prompt || DEFAULT_PROMPT)),
       new HumanMessage(question),
     ];
 

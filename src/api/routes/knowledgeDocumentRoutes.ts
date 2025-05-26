@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import KnowledgeDocument from "../../database/models/knowledgeDocument";
 import ApiResponse from "../../helpers/api-response";
 import { knowledgeService } from "../../services/knowledge-service";
+import { qdrantService } from "../../services/qdrant-service";
 
 const router = Router();
 
@@ -62,6 +63,7 @@ router.get(
 
       if (!doc)
         return res.status(404).json(new ApiResponse(null, false, "Not found"));
+
       res.json(new ApiResponse(doc));
     } catch (err) {
       res
@@ -155,6 +157,26 @@ router.post(
     } catch (err) {
       res
         .status(400)
+        .json(new ApiResponse(null, false, (err as Error).message));
+    }
+  }
+);
+
+// Get a document by ID
+router.get(
+  "/:project_id/documents/:id/vectors",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const vectors = await qdrantService.findVectorsByKnolwedgeDocumentId(
+        req.params.id
+      );
+
+      return res.json(
+        new ApiResponse(vectors, true, "Vectors retrieved successfully")
+      );
+    } catch (err) {
+      res
+        .status(500)
         .json(new ApiResponse(null, false, (err as Error).message));
     }
   }

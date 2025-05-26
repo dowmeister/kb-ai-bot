@@ -18,7 +18,7 @@ export interface AIProvider {
    * @param context - Additional context to guide the completion.
    * @returns A promise that resolves to the completed prompt as a string.
    */
-  completePrompt(question: string, context: string): Promise<string>;
+  completePrompt(question: string, context: string, prompt?:string): Promise<string>;
 
   /**
    * Summarizes the given text into a concise representation.

@@ -84,6 +84,7 @@ interface AIAnswer {
   answer: string;
   urls: string[];
   replied?: boolean;
+  hits?: QdrantQueryGroupResultHit[];
 }
 
 type QdrantEmbeddingPayload = Record<string, any> & {
@@ -97,6 +98,7 @@ type QdrantEmbeddingPayload = Record<string, any> & {
   guildId?: string | null;
   projectId?: string;
   knowledgeSourceId?: string;
+  knowledgeDocumentId?: string;
 };
 
 type QdrantEmbeddingPayloadSource = "discord" | "web-scraper";
@@ -167,6 +169,7 @@ interface SitemapScraperOptions {
 }
 
 interface IKnowledgeDocument {
+  _id: string;
   title?: string;
   content: string;
   key: string;
@@ -204,6 +207,7 @@ interface IProject {
   knowledgeSources: Array<IKnowledgeSource>;
   aiService: string;
   aiModel: string;
+  agentPrompt: string;
 }
 
 interface IKnowledgeSource {
@@ -213,6 +217,12 @@ interface IKnowledgeSource {
   project: IProject | string;
   createdAt?: Date;
   updatedAt?: Date;
+  maxPages?: number;
+  delay?: number;
+  ignoreList?: string;
+  maxRetries?: number;
+  timeout?: number;
+  userAgent?: string;
 }
 
 interface KeywordResult {

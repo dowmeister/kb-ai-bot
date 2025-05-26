@@ -20,7 +20,11 @@ export class ClaudeProvider implements AIProvider {
     return embeddingService.generateEmbedding(text);
   }
 
-  async completePrompt(question: string, context: string): Promise<string> {
+  async completePrompt(
+    question: string,
+    context: string,
+    prompt?: string
+  ): Promise<string> {
     /*
     const systemPrompt = `
     ${DEFAULT_PROMPT}
@@ -47,7 +51,7 @@ export class ClaudeProvider implements AIProvider {
       */
 
     const messages = [
-      new SystemMessage(buildPrompt(context)),
+      new SystemMessage(buildPrompt(context, prompt || DEFAULT_PROMPT)),
       new HumanMessage(question),
     ];
 
@@ -88,6 +92,6 @@ export class ClaudeProvider implements AIProvider {
       return text.substring(0, 300) + "...";
     }
       */
-     return "";
+    return "";
   }
 }

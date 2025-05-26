@@ -26,8 +26,12 @@ export default class GeminiAIProvider implements AIProvider {
     return [];
   }
 
-  async completePrompt(question: string, context: string): Promise<string> {
-    const systemPrompt = buildPrompt(context);
+  async completePrompt(
+    question: string,
+    context: string,
+    prompt?: string
+  ): Promise<string> {
+    const systemPrompt = buildPrompt(context, prompt || DEFAULT_PROMPT);
 
     const chat = this.client.chats.create({
       config: {
