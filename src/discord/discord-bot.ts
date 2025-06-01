@@ -15,12 +15,18 @@ import {
 import { askQuestion } from "../ai/ask";
 import { initMongoose } from "../mongo";
 import { logInfo, logError, logSuccess } from "../helpers/logger";
-import { buildReply, isHelpRequestSimple } from "../helpers/utils";
+import {
+  buildReply,
+  isHelpRequestSimple,
+  removeMentions,
+} from "../helpers/utils";
 import { embeddingService } from "../services/embedding-service";
 import { knowledgeCommands } from "./commands/knowledge-commands";
 import DiscordMessage from "../database/models/discordMessage";
 import { projectCommands } from "./commands/project-commands";
 import { registerCommands } from "./commands-management";
+import KnowledgeSource from "../database/models/knowledgeSource";
+import Project from "../database/models/project";
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
@@ -38,9 +44,11 @@ const commands = new Collection<string, any>();
 knowledgeCommands.forEach((command: any) => {
   commands.set(command.data.name, command);
 });
+/*
 projectCommands.forEach((command: any) => {
   commands.set(command.data.name, command);
 });
+*/
 
 function isMemberModerator(member: any): boolean {
   if (!member.permissions) return false;
@@ -101,7 +109,7 @@ client.on(Events.MessageCreate, async (message) => {
       message.mentions.users.size > 0 &&
       message.mentions.users.first()?.id === client.user?.id
     ) {
-      const userMessage = message.content.trim();
+      const userMessage = removeMentions(message.content.trim());
       if (userMessage.length === 0) return;
 
       const member = await message.guild?.members.fetch(message.author.id);
@@ -133,7 +141,19 @@ client.on(Events.MessageCreate, async (message) => {
 
       await message.channel.sendTyping();
 
-      const answer = await askQuestion(userMessage);
+      const project = await Project.findOne({
+        guildId: message.guildId,
+      });
+
+      if (!project) {
+        logError(`No project found for guild ${message.guildId}`);
+        await message.reply(
+          "❓ I couldn't find a project for this server. Please create one first."
+        );
+        return;
+      }
+
+      const answer = await askQuestion(userMessage, project as IProject);
 
       if (answer && answer.answer.length > 0 && answer.replied) {
         logInfo(`Answering help request: ${userMessage}`);

@@ -2,6 +2,7 @@ import { logInfo, logSuccess, logWarning, logError } from "../helpers/logger";
 import { aiRouter } from "./aiRouter";
 import { embeddingService } from "../services/embedding-service";
 import { qdrantService } from "../services/qdrant-service";
+import { appConfigService } from "../services/app-config-service";
 
 /**
  * Asks a question and retrieves an answer using an AI model.
@@ -33,8 +34,9 @@ export async function askQuestion(
 
     const searchResult = await qdrantService.queryGroups(
       embedding,
-      3,
-      minScore,
+      appConfigService.config?.max_vectors_results_size,
+      appConfigService.config?.max_vectors_group_size,
+      appConfigService.config?.min_score_threshold,
       {
         must: [
           {
@@ -103,7 +105,9 @@ export async function askQuestion(
     return {
       answer,
       replied: true,
-      urls: [],
+      urls: [...new Set(allHits.map(
+        (hit: QdrantQueryGroupResultHit) => hit.payload.url
+      ) as string[])],
       hits: allHits,
     };
   } catch (error) {

@@ -11,10 +11,13 @@ import { ExpressAdapter } from "@bull-board/express";
 import { createBullBoard } from "@bull-board/api";
 import scrapingRoutes from "./routes/scrapingRoutes";
 import mongoose from "mongoose";
+import { appConfigService } from "../services/app-config-service";
+import { qdrantService } from "../services/qdrant-service";
 const { BullMQAdapter } = require("@bull-board/api/bullMQAdapter");
 var cors = require("cors");
 
 mongoose.set("debug", process.env.MONGODB_DEBUG === "true");
+
 const app: Application = express();
 const port = process.env.API_SERVER_PORT || 3001;
 
@@ -40,7 +43,10 @@ createBullBoard({
 
 app.use("/admin/queues", serverAdapter.getRouter());
 
-initMongoose().then(() => {
+initMongoose().then(async () => {
+  await appConfigService.initialize();
+  await qdrantService.initializeCollection();
+  
   app.listen(port, () => {
     logSuccess(`API server running at http://localhost:${port}`);
   });

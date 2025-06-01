@@ -1,12 +1,9 @@
 import KnowledgeDocument from "../database/models/knowledgeDocument";
+import KnowledgeDocumentRetrievalError from "../database/models/knowledgeDocumentRetrievalError";
 import { logInfo, logSuccess, logWarning } from "../helpers/logger";
 import { embeddingService } from "./embedding-service";
 import { qdrantService } from "./qdrant-service";
-import {
-  PluggableSiteScraper,
-  scrapeSite,
-  scrapingService,
-} from "./scraper-service";
+import { PluggableSiteScraper } from "./scraper-service";
 
 export class KnowledgeService {
   async scrapeDocumentAndEmbed(knowledgeDocumentId: string) {
@@ -29,9 +26,16 @@ export class KnowledgeService {
         return false;
       }
 
-      const scrapedPage = await scrapingService.scrapeSingleUrl(
-        knowledgeDocument.url
-      );
+      const scraper = new PluggableSiteScraper({
+        delay: knowledgeDocument.knowledgeSource?.delay,
+        maxPages: knowledgeDocument.knowledgeSource?.maxPages,
+        ignoreList: knowledgeDocument.knowledgeSource?.ignoreList,
+        maxRetries: knowledgeDocument.knowledgeSource?.maxRetries,
+        timeout: knowledgeDocument.knowledgeSource?.timeout,
+        userAgent: knowledgeDocument.knowledgeSource?.userAgent,
+      });
+
+      const scrapedPage = await scraper.scrapeSingleUrl(knowledgeDocument.url);
 
       if (!scrapedPage) {
         logWarning(`Failed to scrape ${knowledgeDocument.url}. Skipping...`);
@@ -78,48 +82,60 @@ export class KnowledgeService {
 
     logInfo(`Starting scraping from ${source.url}...`);
 
-    pages = await scraper.scrape(source.url, async (page: ScrapedPage) => {
-      try {
-        let existingPage = await KnowledgeDocument.findOne({
-          key: page.url,
-          project: project._id,
-          knowledgeSourceId: source._id,
-        });
-
-        if (existingPage) {
-          // update existing page content
-          existingPage.title = page.title;
-          existingPage.content = page.content;
-          existingPage.contentLength = page.content.length;
-          existingPage.siteType = page.siteType;
-          existingPage.keywords = page.keywords || [];
-
-          await existingPage.save();
-        } else {
-          existingPage = await KnowledgeDocument.create({
-            title: page.title,
-            content: page.content,
+    pages = await scraper.scrape(
+      source.url,
+      async (page: ScrapedPage) => {
+        try {
+          let existingPage = await KnowledgeDocument.findOne({
             key: page.url,
-            url: page.url,
-            isSummary: false,
-            type: "web-scraper",
             projectId: project._id,
-            contentLength: page.content.length,
             knowledgeSourceId: source._id,
-            siteType: page.siteType,
-            keywords: page.keywords || [],
           });
 
-          await existingPage.save();
-        }
+          if (existingPage) {
+            // update existing page content
+            existingPage.title = page.title;
+            existingPage.content = page.content;
+            existingPage.contentLength = page.content.length;
+            existingPage.siteType = page.siteType;
+            existingPage.keywords = page.keywords || [];
 
-        await embeddingService.generateEmbeddingsFromPages([existingPage]);
-      } catch (error) {
-        logWarning(
-          `Error processing page ${page.url}: ${(error as Error).message}`
-        );
+            await existingPage.save();
+          } else {
+            existingPage = await KnowledgeDocument.create({
+              title: page.title,
+              content: page.content,
+              key: page.url,
+              url: page.url,
+              isSummary: false,
+              type: "web-scraper",
+              projectId: project._id,
+              contentLength: page.content.length,
+              knowledgeSourceId: source._id,
+              siteType: page.siteType,
+              keywords: page.keywords || [],
+            });
+
+            await existingPage.save();
+          }
+
+          await embeddingService.generateEmbeddingsFromPages([existingPage]);
+        } catch (error) {
+          logWarning(
+            `Error processing page ${page.url}: ${(error as Error).message}`
+          );
+        }
+      },
+      async (error: Error, url: string) => {
+        await KnowledgeDocumentRetrievalError.create({
+          url,
+          error: (error as Error).message,
+          knowledgeSourceId: source._id,
+          projectId: project._id,
+        });
+        logWarning(`Error retrieving page ${url}: ${(error as Error).message}`);
       }
-    });
+    );
 
     logSuccess(`Indexed ${pages.length} pages.`);
     logSuccess("Done!");

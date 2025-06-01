@@ -11,8 +11,10 @@ import { askQuestion } from "../../ai/ask";
 import { buildReply } from "../../helpers/utils";
 import { qdrantService } from "../../services/qdrant-service";
 import KnowledgeDocument from "../../database/models/knowledgeDocument";
+import Project from "../../database/models/project";
 
 export const knowledgeCommands = [
+  /*
   {
     data: new SlashCommandBuilder()
       .setName("kf-add")
@@ -42,8 +44,7 @@ export const knowledgeCommands = [
       const document: IKnowledgeDocument = {
         title: title,
         content: answer,
-        key: `kb-discord-${interaction.id}`,
-        source: "discord",
+        key: `kb-discord-${interaction.id}`,        
         guildId: interaction.guildId,
         contentLength: answer.length,
       };
@@ -140,6 +141,7 @@ export const knowledgeCommands = [
       });
     },
   },
+  */
   {
     data: new SlashCommandBuilder()
       .setName("ask")
@@ -167,7 +169,18 @@ export const knowledgeCommands = [
 
       const user = interaction.options.getUser("user");
 
-      const reply = await askQuestion(query);
+      const project = await Project.findOne({
+        guildId: interaction.guildId,
+      });
+
+      if (!project) {
+        await interaction.editReply({
+          content: "❌ No project found for this server.",
+        });
+        return;
+      }
+
+      const reply = await askQuestion(query, project as IProject);
 
       if (!reply || reply.answer.length === 0 || !reply.replied) {
         await interaction.editReply({

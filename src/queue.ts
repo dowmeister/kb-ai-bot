@@ -1,5 +1,4 @@
 import { Job, Queue, Worker } from "bullmq";
-import { scrapeSite } from "./services/scraper-service";
 import { webScrapingJob } from "./jobs/web-scraping-job";
 import IORedis from "ioredis";
 

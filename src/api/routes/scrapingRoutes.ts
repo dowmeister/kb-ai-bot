@@ -1,13 +1,14 @@
 import { Request, Response, Router } from "express";
 import ApiResponse from "../../helpers/api-response";
-import { scrapeSite, scrapingService } from "../../services/scraper-service";
 import { embeddingService } from "../../services/embedding-service";
+import { PluggableSiteScraper } from "../../services/scraper-service";
 
 const router = Router();
 
 router.post("/test", async (_req: Request, res: Response): Promise<any> => {
   try {
-    const scrapedPage = await scrapingService.scrapeSingleUrl(_req.body.url);
+    const scraper = new PluggableSiteScraper();
+    const scrapedPage = await scraper.scrapeSingleUrl(_req.body.url);
 
     if (!scrapedPage) {
       return res

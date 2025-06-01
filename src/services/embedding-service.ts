@@ -4,6 +4,7 @@ import { logError, logInfo, logSuccess, logWarning } from "../helpers/logger";
 import { splitTextIntoChunks } from "../helpers/utils";
 import { qdrantService } from "./qdrant-service";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+import { appConfigService } from "./app-config-service";
 
 export class TextEmbeddingsInferenceService {
   private apiUrl: string;
@@ -144,7 +145,7 @@ export class TextEmbeddingsInferenceService {
 
   getSplitter() {
     return new RecursiveCharacterTextSplitter({
-      chunkSize: 384,
+      chunkSize: appConfigService.config?.vector_size || 512, // Default chunk size
       chunkOverlap: 0,
       separators: [
         "\n## ", // Split on h2 headers first

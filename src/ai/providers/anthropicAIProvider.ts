@@ -5,13 +5,14 @@ import { embeddingService } from "../../services/embedding-service";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { buildPrompt } from "../../helpers/utils";
+import { appConfigService } from "../../services/app-config-service";
 
 export class ClaudeProvider implements AIProvider {
   protected client: ChatAnthropic;
 
   constructor() {
     this.client = new ChatAnthropic({
-      model: process.env.CLAUDE_MODEL || "claude-3-5-sonnet-20240620",
+      model: appConfigService.config?.anthropic.default_model || "claude-3-5-sonnet-20240620",
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
   }

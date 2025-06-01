@@ -54,7 +54,7 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - EMBEDDING_SERVER_URL=http://embedding-server:8088
       - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=llama3
+
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
       - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID}
@@ -74,6 +74,10 @@ services:
     ports:
       - "6379:6379"
 
+networks:
+  shared-network:
+    external: true
+    
 volumes:
   mongo_data:
   qdrant_storage:

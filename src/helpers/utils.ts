@@ -129,3 +129,13 @@ export function cleanForEmbedding(text: string) {
     .replace(/\n{2,}/g, "\n") // Normalize whitespace
     .trim();
 }
+
+export function removeMentions(content:string) {
+    return content
+        .replace(/<@!?(\d+)>/g, '') // Remove user mentions
+        .replace(/<@&(\d+)>/g, '$1') // Remove role mentions
+        .replace(/<#(\d+)>/g, '$1') // Remove channel mentions
+        .replace(/<a?:\w+:\d+>/g, '') // Remove custom emojis
+        .replace(/\s+/g, ' ') // Clean up extra whitespace
+        .trim(); // Remove leading/trailing whitespace
+}

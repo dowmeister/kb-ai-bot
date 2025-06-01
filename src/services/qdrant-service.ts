@@ -3,6 +3,7 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { logError, logInfo } from "../helpers/logger";
 import { v4 as uuidv4 } from "uuid";
+import { appConfigService } from "./app-config-service";
 
 /**
  * A service class for interacting with a Qdrant vector database.
@@ -40,7 +41,7 @@ export class QdrantService {
     const url = process.env.QDRANT_URI || "http://localhost:6333";
     const apiKey = process.env.QDRANT_API_KEY;
     this.collectionName = process.env.QDRANT_COLLECTION || "knowledge_base";
-    this.vectorSize = parseInt(process.env.VECTOR_SIZE || "384", 10);
+    this.vectorSize = appConfigService.config?.vector_size || 384;
 
     this.client = new QdrantClient({
       url: url,
@@ -119,7 +120,7 @@ export class QdrantService {
             payload,
           },
         ],
-        wait: true,
+        wait: true
       });
     } catch (error: any) {
       if (error.data && error.data.status && error.data.status.error) {
@@ -438,6 +439,7 @@ export class QdrantService {
   async queryGroups(
     queryVector: number[],
     limit: number = 3,
+    groupSize: number = 3,
     score_threshold: number = 0.4,
     filter?: Record<string, any>
   ): Promise<QdrantQueryGroupsResult> {

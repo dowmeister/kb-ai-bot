@@ -1,3 +1,4 @@
+import { appConfigService } from "../services/app-config-service";
 import { ClaudeProvider } from "./providers/anthropicAIProvider";
 import { AIProvider } from "./providers/baseAIProvider";
 import CloudflareAIProvider from "./providers/cloudflareAIProvider";
@@ -52,7 +53,9 @@ export class AIRouter {
    * @returns {AIProvider} The default AI provider instance.
    */
   getDefaultProvider(): AIProvider {
-    return this.getProvider(process.env.DEFAULT_AI_PROVIDER || "ollama");
+    return this.getProvider(
+      appConfigService.config?.default_ai_provider || "ollama"
+    );
   }
 }
 

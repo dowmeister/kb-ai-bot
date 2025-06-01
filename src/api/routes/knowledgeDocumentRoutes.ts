@@ -12,6 +12,7 @@ type KnowledgeDocumentQuery = {
   title?: RegExp;
   content?: RegExp;
   url?: RegExp;
+  siteType?: string;
 };
 
 // Get all documents
@@ -35,6 +36,10 @@ router.get("/:project_id/documents", async (_req: Request, res: Response) => {
 
     if (_req.query.url && _req.query.url != "") {
       parameters.url = new RegExp(_req.query.url.toString(), "i");
+    }
+
+    if (_req.query.siteType && _req.query.siteType != "") {
+      parameters.siteType = _req.query.siteType as string;
     }
 
     const docs = await KnowledgeDocument.find(parameters)

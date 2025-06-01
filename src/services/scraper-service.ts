@@ -55,10 +55,19 @@ export class PluggableSiteScraper {
     new HTMLKeywordExtractor();
 
   constructor(private options: SiteScraperOptions = {}) {
-    this.ignoreList =
-      options.ignoreList?.split(",") ||
-      process.env.SCRAPING_IGNORE_LIST?.split(",") ||
-      [];
+    if (this.options.ignoreList && this.options.ignoreList != "") {
+      this.ignoreList = this.options.ignoreList.split(",");
+    }
+
+    if (
+      process.env.SCRAPING_IGNORE_LIST &&
+      process.env.SCRAPING_IGNORE_LIST != ""
+    ) {
+      this.ignoreList = [
+        ...this.ignoreList,
+        ...process.env.SCRAPING_IGNORE_LIST.split(","),
+      ];
+    }
 
     // Register default extractors
     this.registerExtractor(new MediaWikiContentExtractor());
@@ -96,6 +105,9 @@ export class PluggableSiteScraper {
   async close(): Promise<void> {
     if (this.context) await this.context.close();
     if (this.browser) await this.browser.close();
+
+    this.browser = null;
+    this.context = null;
 
     logInfo("Browser and resources closed successfully.");
   }
@@ -193,7 +205,8 @@ export class PluggableSiteScraper {
    */
   public async scrape(
     startUrl: string,
-    singlePageCallback?: (page: ScrapedPage) => void
+    singlePageCallback?: (page: ScrapedPage) => void,
+    singlePageErrorCallback?: (error: Error, url: string) => void
   ): Promise<ScrapedPage[]> {
     if (!this.browser || !this.page) {
       await this.initialize();
@@ -250,6 +263,14 @@ export class PluggableSiteScraper {
 
         // Wait for content to stabilize
         await this.page!.waitForTimeout(500);
+
+        await this.page!.waitForFunction(
+          () =>
+            !document.title.includes("Just a moment") &&
+            !document.body.textContent?.includes("Checking your browser") &&
+            !document.body.textContent?.includes("review the security"),
+          { timeout: 30000 }
+        );
 
         const extractor = await this.detectExtractor(this.page!);
 
@@ -333,10 +354,17 @@ export class PluggableSiteScraper {
         logError(
           `Failed to scrape ${cleanUrlString}: ${(error as Error).message}`
         );
+
+        if (singlePageErrorCallback) {
+          singlePageErrorCallback(error as Error, cleanUrlString);
+        }
       }
     }
 
+    await this.close();
+
     logSuccess("Scraping completed.");
+
     return this.results;
   }
 
@@ -377,9 +405,16 @@ export class PluggableSiteScraper {
         waitUntil: "domcontentloaded",
         timeout: this.options.timeout || 30000,
       });
-
       // Wait for content to stabilize
       await this.page!.waitForTimeout(500);
+
+      await this.page!.waitForFunction(
+        () =>
+          !document.title.includes("Just a moment") &&
+          !document.body.textContent?.includes("Checking your browser") &&
+          !document.body.textContent?.includes("review the security"),
+        { timeout: 30000 }
+      );
 
       const extractor = await this.detectExtractor(this.page!);
 
@@ -390,6 +425,8 @@ export class PluggableSiteScraper {
         logWarning(`No content extracted from: ${url}`);
         return null;
       }
+
+      await this.close();
 
       if (content.markdown.length > 20) {
         result = {
@@ -417,24 +454,3 @@ export class PluggableSiteScraper {
     }
   }
 }
-
-/**
- * Scrapes a website starting from the given URL and returns an array of scraped pages.
- *
- * @param startUrl - The URL of the website to start scraping from.
- * @returns A promise that resolves to an array of `ScrapedPage` objects containing the scraped data.
- * @throws Any errors encountered during the scraping process.
- */
-export async function scrapeSite(
-  startUrl: string,
-  singlePageCallback?: (page: ScrapedPage) => void
-): Promise<ScrapedPage[]> {
-  const scraper = new PluggableSiteScraper();
-  try {
-    return await scraper.scrape(startUrl, singlePageCallback);
-  } finally {
-    await scraper.close();
-  }
-}
-
-export const scrapingService = new PluggableSiteScraper();

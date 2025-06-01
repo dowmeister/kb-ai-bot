@@ -5,6 +5,7 @@ import KnowledgeSource from "../../database/models/knowledgeSource";
 import { queueManager } from "../../queue";
 import KnowledgeDocument from "../../database/models/knowledgeDocument";
 import { qdrantService } from "../../services/qdrant-service";
+import { embeddingService } from "../../services/embedding-service";
 
 const router = Router();
 
@@ -242,6 +243,26 @@ router.post(
       res
         .status(400)
         .json(new ApiResponse<IProject>(null, false, (err as Error).message));
+    }
+  }
+);
+
+router.post(
+  "/:project_id/sources/:source_id/embed",
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const documents = await KnowledgeDocument.find({
+        projectId: req.params.project_id,
+        knowledgeSourceId: req.params.source_id,
+      }).exec();
+
+      await embeddingService.generateEmbeddingsFromPages(documents);
+
+      res.status(201).json(new ApiResponse());
+    } catch (err) {
+      res
+        .status(400)
+        .json(new ApiResponse(null, false, (err as Error).message));
     }
   }
 );

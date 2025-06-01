@@ -259,3 +259,23 @@ type QdrantQueryGroupResultHit = {
   version: number;
   payload: QdrantEmbeddingPayload;
 };
+
+interface IAppConfig {
+  default_ai_provider: string;
+  gemini: {
+    default_model: string;
+  };
+  openai: {
+    default_model: string;
+  };
+  anthropic: {
+    default_model: string;
+  };
+  ollama: {
+    default_model: string;
+  };
+  min_score_threshold: number;
+  max_vectors_results_size: number;
+  max_vectors_group_size: number;
+  vector_size: number;
+}

@@ -4,6 +4,7 @@ import { createUserContent, GoogleGenAI } from "@google/genai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { buildPrompt } from "../../helpers/utils";
+import { appConfigService } from "../../services/app-config-service";
 
 export default class GeminiAIProvider implements AIProvider {
   private apiKey: string = process.env.GEMINI_API_KEY || "";
@@ -37,7 +38,8 @@ export default class GeminiAIProvider implements AIProvider {
       config: {
         systemInstruction: systemPrompt,
       },
-      model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+      model:
+        appConfigService.config?.gemini.default_model || "gemini-2.0-flash",
     });
 
     const response = await chat.sendMessage({

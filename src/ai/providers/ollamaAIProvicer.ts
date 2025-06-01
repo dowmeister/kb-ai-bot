@@ -1,6 +1,8 @@
 import axios from "axios";
 import { AIProvider } from "./baseAIProvider";
 import { DEFAULT_PROMPT } from "../../helpers/constants";
+import { appConfigService } from "../../services/app-config-service";
+import { buildPrompt } from "../../helpers/utils";
 
 export default class OllamaAIProvider implements AIProvider {
   private baseUrl: string = "http://localhost:11434";
@@ -18,18 +20,18 @@ export default class OllamaAIProvider implements AIProvider {
     return response.data.embedding;
   }
 
-  async completePrompt(question: string, context: string,
-    prompt?: string): Promise<string> {
-    const systemPrompt = `
-  ${DEFAULT_PROMPT}
-  Context:
-  ${context}
-  `.trim();
-
+  async completePrompt(
+    question: string,
+    context: string,
+    prompt?: string
+  ): Promise<string> {
     const response = await axios.post(`${this.baseUrl}/api/chat`, {
-      model: process.env.REPLY_LLM_MODEL || "llama3",
+      model: appConfigService.config?.ollama.default_model || "llama3",
       messages: [
-        { role: "system", content: systemPrompt },
+        {
+          role: "system",
+          content: buildPrompt(context, prompt || DEFAULT_PROMPT),
+        },
         { role: "user", content: question },
       ],
       stream: false,

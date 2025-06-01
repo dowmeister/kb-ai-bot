@@ -4,6 +4,7 @@ import { DEFAULT_PROMPT } from "../../helpers/constants";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { buildPrompt } from "../../helpers/utils";
+import { appConfigService } from "../../services/app-config-service";
 
 export class OpenAIProvider implements AIProvider {
   protected client: ChatOpenAI;
@@ -11,7 +12,7 @@ export class OpenAIProvider implements AIProvider {
   constructor() {
     this.client = new ChatOpenAI({
       apiKey: process.env.OPENAI_API_KEY,
-      model: process.env.OPENAI_MODEL || "gpt-4",
+      model: appConfigService.config?.openai.default_model || "gpt-4",
     } as ClientOptions);
   }
 
