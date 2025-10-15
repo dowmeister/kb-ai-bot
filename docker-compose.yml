@@ -1,84 +1,63 @@
 services:
-  mongodb:
-    image: mongo:6.0
-    container_name: mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-
-  qdrant:
-    image: qdrant/qdrant
-    container_name: qdrant
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_storage:/qdrant/storage
-
-  embedding-server:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.0
-    container_name: embedding-server
-    ports:
-      - "8088:80"
-    environment:
-      MODEL_ID: sentence-transformers/all-MiniLM-L6-v2
-      MAX_INPUT_LENGTH: 512
-
-  ollama:
-    image: ollama/ollama
-    container_name: ollama
-    profiles: [ollama]
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-      - ./docker/entrypoint-ollama.sh:/entrypoint.sh
-    entrypoint: ["/bin/bash", "/entrypoint.sh"]
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-
-  discord-bot:
+  knowledgefox-all-in-one:
     build:
       context: .
-      dockerfile: ./docker/discord-bot-Dockerfile
-    container_name: discord-bot
-    profiles: [discord-bot]
+      dockerfile: Dockerfile
+    container_name: knowledgefox-unified
+    networks:
+      - knowledgefox_network
+    ports:
+      - "3001:3001"    # API Server
+      - "27017:27017"  # MongoDB
+      - "6333:6333"    # Qdrant
+      - "6379:6379"    # Redis
+      - "8088:8088"    # Embedding Server
+      - "11434:11434"  # Ollama (optional)
+    volumes:
+      - app_data:/data/db           # MongoDB data
+      - app_qdrant:/qdrant/storage  # Qdrant storage
+      - app_models:/models          # ML models cache
     environment:
+      # Core service URLs (internal)
+      - MONGO_URI=mongodb://localhost:27017
+      - QDRANT_URI=http://localhost:6333
+      - EMBEDDING_SERVER_URL=http://localhost:8088/embed
+      - REDIS_URL=redis://localhost:6379
+      
+      # External API keys
       - DISCORD_TOKEN=${DISCORD_TOKEN}
-      - MONGO_URI=mongodb://mongodb:27017
-      - QDRANT_URL=http://qdrant:6333
-      - EMBEDDING_SERVER_URL=http://embedding-server:8088
-      - OLLAMA_URL=http://ollama:11434
-
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
-      - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID}
+      - DISCORD_TESTING_CHANNEL_ID=${DISCORD_TESTING_CHANNEL_ID}
       - DEFAULT_AI_PROVIDER=${DEFAULT_AI_PROVIDER}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
       - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
-    depends_on:
-      - mongodb
-      - qdrant
-      - embedding-server
-      - redis
-  redis:
-    image: redis:latest
-    container_name: redis
-    ports:
-      - "6379:6379"
+      - CLOUDFLARE_MODEL=${CLOUDFLARE_MODEL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      
+      # Scraping configuration  
+      - START_URL=${START_URL}
+      - SCRAPING_IGNORE_LIST=${SCRAPING_IGNORE_LIST}
+      
+      # Embedding model configuration
+      - MODEL_ID=sentence-transformers/all-MiniLM-L6-v2
+      - MAX_INPUT_LENGTH=512
+      
+      # Optional Ollama
+      - OLLAMA_API_URL=http://localhost:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL}
 
 networks:
-  shared-network:
-    external: true
-    
+  knowledgefox_network:
+    driver: bridge
+
 volumes:
-  mongo_data:
-  qdrant_storage:
-  ollama_data:
+  app_data:
+    name: knowledgefox_mongodb_data
+  app_qdrant:
+    name: knowledgefox_qdrant_data
+  app_models:
+    name: knowledgefox_models

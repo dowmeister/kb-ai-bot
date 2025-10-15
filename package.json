@@ -12,6 +12,13 @@
     "cli": "ts-node src/cli.ts",
     "test-scraper": "ts-node src/tests/test-scraper.ts",
     "api-server": "nodemon --watch src/**/*.ts --exec ts-node src/api/api-server.ts",
+    "docker:build": "docker compose build",
+    "docker:start": "docker compose up -d",
+    "docker:stop": "docker compose down",
+    "docker:logs": "docker compose logs -f knowledgefox-all-in-one",
+    "docker:exec": "docker compose exec knowledgefox-all-in-one bash",
+    "docker:scrape": "docker compose exec knowledgefox-all-in-one npm run scrape",
+    "docker:cli": "docker compose exec knowledgefox-all-in-one npm run cli",
     "postinstall": "npx playwright install"
   },
   "author": "",
